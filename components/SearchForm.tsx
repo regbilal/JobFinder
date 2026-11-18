@@ -34,7 +34,7 @@ export function SearchForm({
   const [dateRange, setDateRange] = useState<DateRangePreset>("week");
   const [contentTypes, setContentTypes] =
     useState<LinkedInContentType[]>(CONTENT_OPTIONS);
-  const [searchMode, setSearchMode] = useState<SearchMode>("live");
+  const [searchMode, setSearchMode] = useState<SearchMode>("fetch");
 
   function toggleContent(type: LinkedInContentType) {
     setContentTypes((prev) => {
@@ -61,8 +61,8 @@ export function SearchForm({
         <LinkedInIcon />
         <span>
           <strong className="font-semibold text-[#0a66c2]">LinkedIn only.</strong>{" "}
-          <strong>Live mode</strong> opens linkedin.com with your filters (no API, always
-          fresh). API mode needs keys and may return older cached listings.
+          <strong>Fetch</strong> loads job listings from LinkedIn (no API keys).{" "}
+          <strong>Links</strong> only opens searches. <strong>API</strong> uses JSearch/SerpAPI.
         </span>
       </div>
 
@@ -70,14 +70,19 @@ export function SearchForm({
         <p className="text-sm font-medium text-slate-700">Search mode</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <ModeButton
-            active={searchMode === "live"}
-            onClick={() => setSearchMode("live")}
-            label="Live on LinkedIn (no API)"
+            active={searchMode === "fetch"}
+            onClick={() => setSearchMode("fetch")}
+            label="Fetch from LinkedIn (recommended)"
+          />
+          <ModeButton
+            active={searchMode === "links"}
+            onClick={() => setSearchMode("links")}
+            label="Search links only"
           />
           <ModeButton
             active={searchMode === "api"}
             onClick={() => setSearchMode("api")}
-            label="API aggregation"
+            label="Third-party API"
           />
         </div>
       </div>
@@ -160,9 +165,11 @@ export function SearchForm({
         >
           {loading
             ? "Working…"
-            : searchMode === "live"
-              ? "Build live LinkedIn searches"
-              : "Search via API"}
+            : searchMode === "fetch"
+              ? "Fetch LinkedIn results"
+              : searchMode === "links"
+                ? "Build search links"
+                : "Search via API"}
         </button>
       </div>
     </form>

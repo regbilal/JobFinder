@@ -1,9 +1,14 @@
 import { NextResponse } from "next/server";
 import { aggregateJobs } from "@/lib/aggregators";
+import {
+  fetchLinkedInDirect,
+  guestFetchMeta,
+} from "@/lib/aggregators/fetch-linkedin";
 import type {
   DateRangePreset,
   JobSearchParams,
   LinkedInContentType,
+  SearchMode,
 } from "@/lib/types";
 
 const VALID_RANGES: DateRangePreset[] = [
@@ -54,6 +59,11 @@ export async function POST(request: Request) {
 
   const contentTypes = parseContentTypes(body.contentTypes);
 
+  const searchMode: SearchMode =
+    body.searchMode === "api" || body.searchMode === "links"
+      ? body.searchMode
+      : "fetch";
+
   const params: JobSearchParams = {
     keywords,
     location,
@@ -61,6 +71,27 @@ export async function POST(request: Request) {
     sources: ["linkedin"],
     contentTypes,
   };
+
+  if (searchMode === "fetch") {
+    const direct = await fetchLinkedInDirect(params);
+    const extra = guestFetchMeta(params, direct.jobs.length);
+    return NextResponse.json({
+      jobs: direct.jobs,
+      meta: {
+        total: direct.jobs.length,
+        queriedAt: new Date().toISOString(),
+        sources: ["linkedin"],
+        params,
+        dataMode: "live" as const,
+        liveBoards: ["linkedin"],
+        liveContent: { jobs: true, posts: true },
+        notice: direct.notice,
+        errors: direct.errors.length ? direct.errors : undefined,
+        searchMode: "fetch",
+        ...extra,
+      },
+    });
+  }
 
   const result = await aggregateJobs(params);
 
@@ -78,6 +109,7 @@ export async function POST(request: Request) {
       errors: result.errors,
       keysConfigured: result.keysConfigured,
       searchCountry: result.searchCountry,
+      searchMode: "api",
     },
   });
 }

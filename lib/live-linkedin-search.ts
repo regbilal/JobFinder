@@ -8,8 +8,6 @@ import type {
   LinkedInContentType,
 } from "@/lib/types";
 
-export type SearchMode = "live" | "api";
-
 export function parseKeywordList(raw: string): string[] {
   return raw
     .split(",")

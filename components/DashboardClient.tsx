@@ -23,7 +23,7 @@ export function DashboardClient() {
     setLastSearch({ keywords: values.keywords, location: values.location });
 
     try {
-      if (values.searchMode === "live") {
+      if (values.searchMode === "links") {
         const liveJobs = buildLiveLinkedInResults({
           keywords: values.keywords,
           location: values.location,
@@ -50,8 +50,9 @@ export function DashboardClient() {
           dataMode: "live",
           liveBoards: ["linkedin"],
           liveContent: { jobs: true, posts: true },
+          searchMode: "links",
           notice:
-            "Live mode — no API. Each row opens linkedin.com with your keywords, location, and date filter. Apply and save jobs on LinkedIn; use CSV export to keep this link list.",
+            "Links mode — each row opens a LinkedIn search. Use Fetch mode to load job cards into this table.",
           keysConfigured: { rapidApi: false, serpApi: false },
           searchCountry: values.location || "—",
         });
@@ -66,6 +67,7 @@ export function DashboardClient() {
           location: values.location,
           dateRange: values.dateRange,
           contentTypes: values.contentTypes,
+          searchMode: values.searchMode,
         }),
       });
       const data = await res.json();
@@ -86,7 +88,7 @@ export function DashboardClient() {
   return (
     <AppShell
       title="LinkedIn job search"
-      subtitle="Default: Live mode (no API keys). Switch to API aggregation if you use JSearch / SerpAPI."
+      subtitle="Default: Fetch from LinkedIn (no API keys). Jobs load as real listings; posts still use live links."
     >
       <div className="space-y-8">
         <SearchForm onSearch={runSearch} loading={loading} />
@@ -101,21 +103,26 @@ export function DashboardClient() {
           <div className="space-y-2">
             <p className="text-xs text-slate-500">
               Last query at {new Date(meta.queriedAt).toLocaleString()} ·{" "}
-              {meta.total} links · mode:{" "}
-              <span className="font-medium text-slate-700">{meta.dataMode}</span>
-              {meta.dataMode !== "live"
+              {meta.total} results ·{" "}
+              {meta.searchMode === "fetch"
+                ? "fetch from LinkedIn"
+                : meta.searchMode === "links"
+                  ? "search links"
+                  : `API (${meta.dataMode})`}
+              {meta.searchMode === "api"
                 ? ` · RAPIDAPI ${meta.keysConfigured?.rapidApi ? "on" : "off"} · SERPAPI ${meta.keysConfigured?.serpApi ? "on" : "off"}`
                 : ""}
             </p>
             {meta.notice ? (
               <p
                 className={`rounded-lg border px-3 py-2 text-xs ${
-                  meta.dataMode === "demo" || (meta.errors?.length ?? 0) > 0
+                  (meta.errors?.length ?? 0) > 0
                     ? "border-amber-200 bg-amber-50 text-amber-900"
                     : "border-sky-200 bg-sky-50 text-sky-900"
                 }`}
               >
                 {meta.notice}
+                {meta.errors?.length ? ` ${meta.errors.join(" ")}` : ""}
               </p>
             ) : null}
           </div>
@@ -134,8 +141,8 @@ export function DashboardClient() {
                 Ready when you are
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Use <strong>Live on LinkedIn</strong>, enter your titles, then open each
-                row on linkedin.com.
+                Use <strong>Fetch from LinkedIn</strong> with your titles and
+                location (e.g. France).
               </p>
             </div>
           )

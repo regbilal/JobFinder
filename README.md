@@ -64,9 +64,17 @@ LinkedIn does not offer a public post-search API. Post results use indexed publi
 
 For production hiring workflows, many teams use **JSearch + dashboard “Open LinkedIn Jobs (live)”** for the latest postings.
 
-### Live mode (default, no API)
+### Fetch from LinkedIn (default, no API)
 
-Choose **Live on LinkedIn (no API)** on the dashboard. The app builds one row per keyword (jobs + posts) with direct `linkedin.com` URLs—no `RAPIDAPI_KEY` or `SERPAPI_KEY` required. Results always match what you would see on LinkedIn for that search.
+**Fetch from LinkedIn** calls LinkedIn’s public guest job search (same HTML as the website), parses listings into the table, and uses real `linkedin.com/jobs/view/{id}` links. No `RAPIDAPI_KEY` / `SERPAPI_KEY` required.
+
+| Mode | Jobs | Posts |
+|------|------|-------|
+| **Fetch** | Parsed job cards in-app | Live search links only |
+| **Search links** | Opens linkedin.com | Opens linkedin.com |
+| **Third-party API** | JSearch / Serp | Serp |
+
+LinkedIn may block some datacenter IPs (e.g. serverless hosts). If fetch returns 0 rows on Vercel, use **Search links** or **Third-party API**. Scraping may violate LinkedIn’s ToS—use for personal/internal tooling.
 
 ## Project structure
 
