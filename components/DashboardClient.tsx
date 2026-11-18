@@ -103,7 +103,7 @@ export function DashboardClient() {
               Last query at {new Date(meta.queriedAt).toLocaleString()} ·{" "}
               {meta.total} links · mode:{" "}
               <span className="font-medium text-slate-700">{meta.dataMode}</span>
-              {meta.dataMode === "api"
+              {meta.dataMode !== "live"
                 ? ` · RAPIDAPI ${meta.keysConfigured?.rapidApi ? "on" : "off"} · SERPAPI ${meta.keysConfigured?.serpApi ? "on" : "off"}`
                 : ""}
             </p>
