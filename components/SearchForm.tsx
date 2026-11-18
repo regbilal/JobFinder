@@ -5,6 +5,7 @@ import {
   LINKEDIN_CONTENT_LABELS,
   type DateRangePreset,
   type LinkedInContentType,
+  type SearchMode,
 } from "@/lib/types";
 import clsx from "clsx";
 import { FormEvent, useState } from "react";
@@ -14,6 +15,7 @@ export interface SearchFormValues {
   location: string;
   dateRange: DateRangePreset;
   contentTypes: LinkedInContentType[];
+  searchMode: SearchMode;
 }
 
 const CONTENT_OPTIONS: LinkedInContentType[] = ["job", "post"];
@@ -32,6 +34,7 @@ export function SearchForm({
   const [dateRange, setDateRange] = useState<DateRangePreset>("week");
   const [contentTypes, setContentTypes] =
     useState<LinkedInContentType[]>(CONTENT_OPTIONS);
+  const [searchMode, setSearchMode] = useState<SearchMode>("live");
 
   function toggleContent(type: LinkedInContentType) {
     setContentTypes((prev) => {
@@ -46,7 +49,7 @@ export function SearchForm({
   function onSubmit(e: FormEvent) {
     e.preventDefault();
     if (contentTypes.length === 0) return;
-    onSearch({ keywords, location, dateRange, contentTypes });
+    onSearch({ keywords, location, dateRange, contentTypes, searchMode });
   }
 
   return (
@@ -58,10 +61,25 @@ export function SearchForm({
         <LinkedInIcon />
         <span>
           <strong className="font-semibold text-[#0a66c2]">LinkedIn only.</strong>{" "}
-          Search <em>job listings</em> and/or public <em>feed posts</em> (hiring
-          updates, “we’re hiring” posts). Live data needs API keys—see dashboard notice
-          after search.
+          <strong>Live mode</strong> opens linkedin.com with your filters (no API, always
+          fresh). API mode needs keys and may return older cached listings.
         </span>
+      </div>
+
+      <div className="mb-5">
+        <p className="text-sm font-medium text-slate-700">Search mode</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          <ModeButton
+            active={searchMode === "live"}
+            onClick={() => setSearchMode("live")}
+            label="Live on LinkedIn (no API)"
+          />
+          <ModeButton
+            active={searchMode === "api"}
+            onClick={() => setSearchMode("api")}
+            label="API aggregation"
+          />
+        </div>
       </div>
 
       <div className="mb-5">
@@ -140,10 +158,39 @@ export function SearchForm({
           disabled={loading || contentTypes.length === 0}
           className="rounded-lg bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#004182] disabled:opacity-60"
         >
-          {loading ? "Searching LinkedIn…" : "Search LinkedIn"}
+          {loading
+            ? "Working…"
+            : searchMode === "live"
+              ? "Build live LinkedIn searches"
+              : "Search via API"}
         </button>
       </div>
     </form>
+  );
+}
+
+function ModeButton({
+  active,
+  onClick,
+  label,
+}: {
+  active: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className={clsx(
+        "rounded-lg border px-3 py-1.5 text-xs font-semibold transition",
+        active
+          ? "border-[#0a66c2] bg-[#0a66c2] text-white"
+          : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+      )}
+    >
+      {label}
+    </button>
   );
 }
 

@@ -19,6 +19,8 @@ export const JOB_SOURCE_LABELS: Record<JobSource, string> = {
   linkedin: "LinkedIn",
 };
 
+export type SearchMode = "live" | "api";
+
 export type LinkedInContentKind = "job" | "post";
 
 export type LinkedInContentType = LinkedInContentKind;
@@ -55,6 +57,8 @@ export interface JobPost {
   /** Serp rows without a parseable date (often stale Google index). */
   unknownPostedDate?: boolean;
   dataProvider?: "jsearch" | "serp";
+  /** Row is a direct LinkedIn search link (no third-party API). */
+  liveSearch?: boolean;
 }
 
 export type JobsDataMode = "live" | "demo" | "mixed";

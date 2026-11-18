@@ -64,6 +64,10 @@ LinkedIn does not offer a public post-search API. Post results use indexed publi
 
 For production hiring workflows, many teams use **JSearch + dashboard “Open LinkedIn Jobs (live)”** for the latest postings.
 
+### Live mode (default, no API)
+
+Choose **Live on LinkedIn (no API)** on the dashboard. The app builds one row per keyword (jobs + posts) with direct `linkedin.com` URLs—no `RAPIDAPI_KEY` or `SERPAPI_KEY` required. Results always match what you would see on LinkedIn for that search.
+
 ## Project structure
 
 ```

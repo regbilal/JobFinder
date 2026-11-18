@@ -2,8 +2,8 @@
 
 import { AppShell } from "@/components/AppShell";
 import { JobResults } from "@/components/JobResults";
-import { LiveLinkedInLinks } from "@/components/LiveLinkedInLinks";
 import { SearchForm, type SearchFormValues } from "@/components/SearchForm";
+import { buildLiveLinkedInResults } from "@/lib/live-linkedin-search";
 import type { JobPost, JobSearchResponse } from "@/lib/types";
 import { useState } from "react";
 
@@ -14,15 +14,50 @@ export function DashboardClient() {
   const [lastSearch, setLastSearch] = useState<{
     keywords: string;
     location: string;
-    dateRange: import("@/lib/types").DateRangePreset;
-    contentTypes: import("@/lib/types").LinkedInContentType[];
-  }>({ keywords: "", location: "", dateRange: "week", contentTypes: ["job", "post"] });
+  }>({ keywords: "", location: "" });
   const [meta, setMeta] = useState<JobSearchResponse["meta"] | null>(null);
 
   async function runSearch(values: SearchFormValues) {
     setError("");
     setLoading(true);
+    setLastSearch({ keywords: values.keywords, location: values.location });
+
     try {
+      if (values.searchMode === "live") {
+        const liveJobs = buildLiveLinkedInResults({
+          keywords: values.keywords,
+          location: values.location,
+          dateRange: values.dateRange,
+          contentTypes: values.contentTypes,
+        });
+        if (liveJobs.length === 0) {
+          setError("Enter at least one keyword.");
+          setJobs([]);
+          setMeta(null);
+          return;
+        }
+        setJobs(liveJobs);
+        setMeta({
+          total: liveJobs.length,
+          queriedAt: new Date().toISOString(),
+          sources: ["linkedin"],
+          params: {
+            keywords: values.keywords.split(",").map((k) => k.trim()).filter(Boolean),
+            location: values.location,
+            dateRange: values.dateRange,
+            contentTypes: values.contentTypes,
+          },
+          dataMode: "live",
+          liveBoards: ["linkedin"],
+          liveContent: { jobs: true, posts: true },
+          notice:
+            "Live mode — no API. Each row opens linkedin.com with your keywords, location, and date filter. Apply and save jobs on LinkedIn; use CSV export to keep this link list.",
+          keysConfigured: { rapidApi: false, serpApi: false },
+          searchCountry: values.location || "—",
+        });
+        return;
+      }
+
       const res = await fetch("/api/jobs/search", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -41,12 +76,6 @@ export function DashboardClient() {
       const payload = data as JobSearchResponse;
       setJobs(payload.jobs);
       setMeta(payload.meta);
-      setLastSearch({
-        keywords: values.keywords,
-        location: values.location,
-        dateRange: values.dateRange,
-        contentTypes: values.contentTypes,
-      });
     } catch {
       setError("Could not reach the search API.");
     } finally {
@@ -57,17 +86,10 @@ export function DashboardClient() {
   return (
     <AppShell
       title="LinkedIn job search"
-      subtitle="Jobs (RAPIDAPI_KEY / JSearch) and feed posts (SERPAPI_KEY / SerpAPI). Enable both keys on Vercel for fully live results."
+      subtitle="Default: Live mode (no API keys). Switch to API aggregation if you use JSearch / SerpAPI."
     >
       <div className="space-y-8">
         <SearchForm onSearch={runSearch} loading={loading} />
-
-        <LiveLinkedInLinks
-          keywords={lastSearch.keywords || "Responsable production"}
-          location={lastSearch.location}
-          dateRange={lastSearch.dateRange}
-          contentTypes={lastSearch.contentTypes}
-        />
 
         {error ? (
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
@@ -79,12 +101,11 @@ export function DashboardClient() {
           <div className="space-y-2">
             <p className="text-xs text-slate-500">
               Last query at {new Date(meta.queriedAt).toLocaleString()} ·{" "}
-              {meta.total} results · mode:{" "}
+              {meta.total} links · mode:{" "}
               <span className="font-medium text-slate-700">{meta.dataMode}</span>
-              {meta.liveContent
-                ? ` · APIs: RAPIDAPI ${meta.keysConfigured?.rapidApi ? "on" : "off"} · SERPAPI ${meta.keysConfigured?.serpApi ? "on" : "off"}`
+              {meta.dataMode === "api"
+                ? ` · RAPIDAPI ${meta.keysConfigured?.rapidApi ? "on" : "off"} · SERPAPI ${meta.keysConfigured?.serpApi ? "on" : "off"}`
                 : ""}
-              {meta.searchCountry ? ` · country bias: ${meta.searchCountry}` : ""}
             </p>
             {meta.notice ? (
               <p
@@ -100,7 +121,7 @@ export function DashboardClient() {
           </div>
         ) : null}
 
-        {jobs.length > 0 || meta ? (
+        {jobs.length > 0 ? (
           <JobResults
             jobs={jobs}
             keywords={lastSearch.keywords}
@@ -113,7 +134,8 @@ export function DashboardClient() {
                 Ready when you are
               </p>
               <p className="mt-1 text-sm text-slate-500">
-                Enter keywords and run a search to populate the report.
+                Use <strong>Live on LinkedIn</strong>, enter your titles, then open each
+                row on linkedin.com.
               </p>
             </div>
           )
