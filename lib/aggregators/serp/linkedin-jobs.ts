@@ -1,9 +1,10 @@
 import type { DateRangePreset, JobPost, JobSearchParams } from "@/lib/types";
-import {
-  canonicalLinkedInJobUrl,
-  normalizeLinkedInUrl,
-} from "@/lib/linkedin-url";
+import { canonicalLinkedInJobUrl, normalizeLinkedInUrl } from "@/lib/linkedin-url";
 import { computeMatchScore } from "@/lib/match-score";
+import {
+  expandKeywordPlans,
+  inferSerpLocale,
+} from "@/lib/search-plans";
 import { isSerpApiConfigured } from "@/lib/aggregators/serp/linkedin-posts";
 
 const DATE_TBS: Partial<Record<DateRangePreset, string>> = {
@@ -25,10 +26,17 @@ type SerpResponse = {
   error?: string;
 };
 
-function buildSerpJobQuery(params: JobSearchParams): string {
-  const kw = params.keywords.join(" ");
-  const loc = params.location.trim();
-  return [`site:linkedin.com/jobs/view`, kw, loc].filter(Boolean).join(" ");
+function buildSerpJobQueries(keywords: string[], location: string): string[] {
+  const loc = location.trim();
+  const all = keywords.join(" ");
+  const queries = [
+    `site:linkedin.com/jobs/view ${all} ${loc}`.trim(),
+    `site:linkedin.com/jobs ${all} ${loc}`.trim(),
+  ];
+  for (const kw of keywords) {
+    queries.push(`site:linkedin.com/jobs/view "${kw}" ${loc}`.trim());
+  }
+  return [...new Set(queries)].slice(0, 8);
 }
 
 function pickRowUrl(row: SerpOrganic): string {
@@ -36,26 +44,27 @@ function pickRowUrl(row: SerpOrganic): string {
 }
 
 function parseCompanyFromSnippet(snippet: string, title: string): string {
-  const loc = title.indexOf(" - ");
-  if (loc > 0) return title.slice(0, loc).trim();
-  const at = snippet.match(/\bat\s+([^.|\n]+)/i);
+  const dash = title.indexOf(" - ");
+  if (dash > 0) return title.slice(0, dash).trim();
+  const at = snippet.match(/\bat\s+([^.|\n]+)/i) ?? snippet.match(/\bchez\s+([^.|\n]+)/i);
   return at?.[1]?.trim() || "—";
 }
 
-export async function fetchLinkedInJobsFromSerp(
+async function runSerpQuery(
+  q: string,
   params: JobSearchParams
 ): Promise<JobPost[]> {
-  if (!isSerpApiConfigured()) {
-    throw new Error("SERPAPI_KEY is not configured");
-  }
   const apiKey = process.env.SERPAPI_KEY!.trim();
+  const locale = inferSerpLocale(params);
 
   const url = new URL("https://serpapi.com/search.json");
   url.searchParams.set("engine", "google");
-  url.searchParams.set("q", buildSerpJobQuery(params));
+  url.searchParams.set("q", q);
   url.searchParams.set("api_key", apiKey);
   url.searchParams.set("num", "20");
-  url.searchParams.set("hl", "en");
+  url.searchParams.set("gl", locale.gl);
+  url.searchParams.set("hl", locale.hl);
+  url.searchParams.set("google_domain", locale.google_domain);
 
   const tbs = DATE_TBS[params.dateRange];
   if (tbs) url.searchParams.set("tbs", tbs);
@@ -68,17 +77,15 @@ export async function fetchLinkedInJobsFromSerp(
 
   const jobs: JobPost[] = [];
   for (const row of body.organic_results ?? []) {
-    const raw = pickRowUrl(row);
-    const applyUrl = canonicalLinkedInJobUrl(raw);
+    const applyUrl = canonicalLinkedInJobUrl(pickRowUrl(row));
     if (!applyUrl) continue;
 
     const title =
-      row.title?.replace(/\s*\|\s*LinkedIn\s*$/i, "").trim() ||
-      "LinkedIn job";
+      row.title?.replace(/\s*\|\s*LinkedIn\s*$/i, "").trim() || "LinkedIn job";
     const snippet = (row.snippet ?? "").trim();
 
     jobs.push({
-      id: `job-${extractId(applyUrl)}`,
+      id: `job-${applyUrl.match(/(\d+)/)?.[1] ?? applyUrl}`,
       kind: "job",
       title,
       company: parseCompanyFromSnippet(snippet, title),
@@ -91,10 +98,33 @@ export async function fetchLinkedInJobsFromSerp(
       descriptionSnippet: snippet || title,
     });
   }
-
   return jobs;
 }
 
-function extractId(applyUrl: string): string {
-  return applyUrl.match(/(\d+)\/?$/)?.[1] ?? applyUrl;
+export async function fetchLinkedInJobsFromSerp(
+  params: JobSearchParams
+): Promise<JobPost[]> {
+  if (!isSerpApiConfigured()) {
+    throw new Error("SERPAPI_KEY is not configured");
+  }
+
+  const plans = expandKeywordPlans(params.keywords);
+  const merged: JobPost[] = [];
+  const seen = new Set<string>();
+
+  for (const kw of plans) {
+    const queries = buildSerpJobQueries(kw, params.location);
+    for (const q of queries) {
+      const batch = await runSerpQuery(q, params);
+      for (const job of batch) {
+        if (seen.has(job.applyUrl)) continue;
+        seen.add(job.applyUrl);
+        merged.push(job);
+      }
+      if (merged.length >= 30) break;
+    }
+    if (merged.length >= 30) break;
+  }
+
+  return merged;
 }

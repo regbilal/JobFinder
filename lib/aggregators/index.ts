@@ -9,6 +9,7 @@ import {
 } from "@/lib/aggregators/boards/linkedin-posts";
 import { isJSearchConfigured } from "@/lib/aggregators/jsearch/client";
 import { isSerpApiConfigured } from "@/lib/aggregators/serp/linkedin-posts";
+import { inferCountryCode } from "@/lib/search-plans";
 import type {
   JobPost,
   JobSearchParams,
@@ -44,7 +45,7 @@ function buildNotice(
   postsLive: boolean
 ): string {
   if (!jobsLive && !postsLive) {
-    return "No API keys configured. Set RAPIDAPI_KEY (jobs via JSearch) and/or SERPAPI_KEY (jobs fallback + posts). Demo placeholders are disabled so every row links to a real LinkedIn URL.";
+    return "No API keys on the server (Vercel → Environment Variables). Add RAPIDAPI_KEY and/or SERPAPI_KEY, redeploy, then search again. Without keys the app returns zero rows by design.";
   }
   const parts: string[] = [];
   if (types.includes("job")) {
@@ -79,6 +80,8 @@ export async function aggregateJobs(
   liveContent: { jobs: boolean; posts: boolean };
   notice?: string;
   errors?: string[];
+  keysConfigured: { rapidApi: boolean; serpApi: boolean };
+  searchCountry: string;
 }> {
   const contentTypes = resolveContentTypes(params);
   const jobsLive = linkedInUsesLiveData();
@@ -123,6 +126,12 @@ export async function aggregateJobs(
     notice = `${notice} ${errors.join(" ")}`;
   }
 
+  if (merged.length === 0 && anyLive) {
+    errors.push(
+      "APIs responded but no LinkedIn URLs matched. Try fewer keywords at once, set Location (e.g. France), or widen Date posted to Any time."
+    );
+  }
+
   return {
     jobs: merged,
     sources: ["linkedin"],
@@ -131,6 +140,11 @@ export async function aggregateJobs(
     liveContent: { jobs: jobsLive, posts: postsLive },
     notice,
     errors: errors.length > 0 ? errors : undefined,
+    keysConfigured: {
+      rapidApi: isJSearchConfigured(),
+      serpApi: isSerpApiConfigured(),
+    },
+    searchCountry: inferCountryCode(params),
   };
 }
 

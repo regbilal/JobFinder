@@ -68,5 +68,7 @@ export interface JobSearchResponse {
     liveContent: { jobs: boolean; posts: boolean };
     notice?: string;
     errors?: string[];
+    keysConfigured?: { rapidApi: boolean; serpApi: boolean };
+    searchCountry?: string;
   };
 }

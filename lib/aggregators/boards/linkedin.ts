@@ -4,18 +4,40 @@ import { fetchLinkedInJobsFromSerp } from "@/lib/aggregators/serp/linkedin-jobs"
 import { isSerpApiConfigured } from "@/lib/aggregators/serp/linkedin-posts";
 import type { JobPost } from "@/lib/types";
 
+function dedupeByUrl(jobs: JobPost[]): JobPost[] {
+  const seen = new Set<string>();
+  const out: JobPost[] = [];
+  for (const job of jobs) {
+    if (seen.has(job.applyUrl)) continue;
+    seen.add(job.applyUrl);
+    out.push(job);
+  }
+  return out;
+}
+
 export const linkedInAggregator: JobBoardAggregator = {
   id: "linkedin",
   displayName: "LinkedIn",
   mode: "live",
   async fetchJobs(params) {
     let jobs: JobPost[] = [];
+
     if (isJSearchConfigured()) {
-      jobs = await fetchFromJSearch(params, { publisherPatterns: ["linkedin"] });
+      const fromJsearch = await fetchFromJSearch(params, {
+        publisherPatterns: ["linkedin"],
+      });
+      jobs = dedupeByUrl([...jobs, ...fromJsearch]);
+      if (jobs.length === 0) {
+        const relaxed = await fetchFromJSearch(params);
+        jobs = dedupeByUrl([...jobs, ...relaxed]);
+      }
     }
-    if (jobs.length === 0 && isSerpApiConfigured()) {
-      jobs = await fetchLinkedInJobsFromSerp(params);
+
+    if (isSerpApiConfigured()) {
+      const fromSerp = await fetchLinkedInJobsFromSerp(params);
+      jobs = dedupeByUrl([...jobs, ...fromSerp]);
     }
+
     return jobs;
   },
 };
@@ -24,8 +46,11 @@ export function linkedInUsesLiveData(): boolean {
   return isJSearchConfigured() || isSerpApiConfigured();
 }
 
-export function linkedInJobsSource(): "jsearch" | "serp" | "none" {
-  if (isJSearchConfigured()) return "jsearch";
-  if (isSerpApiConfigured()) return "serp";
+export function linkedInJobsSource(): "jsearch" | "serp" | "both" | "none" {
+  const j = isJSearchConfigured();
+  const s = isSerpApiConfigured();
+  if (j && s) return "both";
+  if (j) return "jsearch";
+  if (s) return "serp";
   return "none";
 }

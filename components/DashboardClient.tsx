@@ -70,8 +70,9 @@ export function DashboardClient() {
               {meta.total} results · mode:{" "}
               <span className="font-medium text-slate-700">{meta.dataMode}</span>
               {meta.liveContent
-                ? ` · live jobs: ${meta.liveContent.jobs ? "yes" : "no"} · live posts: ${meta.liveContent.posts ? "yes" : "no"}`
+                ? ` · APIs: RAPIDAPI ${meta.keysConfigured?.rapidApi ? "on" : "off"} · SERPAPI ${meta.keysConfigured?.serpApi ? "on" : "off"}`
                 : ""}
+              {meta.searchCountry ? ` · country bias: ${meta.searchCountry}` : ""}
             </p>
             {meta.notice ? (
               <p

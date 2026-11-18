@@ -1,6 +1,7 @@
 import type { DateRangePreset, JobPost, JobSearchParams } from "@/lib/types";
 import { canonicalLinkedInJobUrl } from "@/lib/linkedin-url";
 import { computeMatchScore } from "@/lib/match-score";
+import { expandKeywordPlans, inferCountryCode } from "@/lib/search-plans";
 
 const HOST = "jsearch.p.rapidapi.com";
 
@@ -39,11 +40,11 @@ export type JSearchFilters = {
   publisherPatterns?: string[];
 };
 
-function buildQuery(params: JobSearchParams): string {
-  const keywords = params.keywords.join(" ");
-  const loc = params.location.trim();
-  if (loc) return `${keywords} jobs in ${loc} site:linkedin.com`;
-  return `${keywords} linkedin jobs`;
+function buildQuery(keywords: string[], location: string): string {
+  const phrase = keywords.join(" ");
+  const loc = location.trim();
+  if (loc) return `${phrase} ${loc}`;
+  return phrase;
 }
 
 function formatLocation(job: JSearchJob): string {
@@ -59,17 +60,11 @@ function matchesPublisher(job: JSearchJob, patterns: string[]): boolean {
   );
 }
 
-function mapToJobPost(
-  job: JSearchJob,
-  keywords: string[]
-): JobPost | null {
+function mapToJobPost(job: JSearchJob, keywords: string[]): JobPost | null {
   const title = job.job_title?.trim();
   if (!title) return null;
 
-  const applyUrl = canonicalLinkedInJobUrl(
-    job.job_apply_link,
-    job.job_id
-  );
+  const applyUrl = canonicalLinkedInJobUrl(job.job_apply_link, job.job_id);
   if (!applyUrl) return null;
 
   const snippet = (job.job_description ?? "")
@@ -77,9 +72,8 @@ function mapToJobPost(
     .trim()
     .slice(0, 280);
 
-  const id = extractId(applyUrl);
-  const posted =
-    job.job_posted_at_datetime_utc ?? new Date().toISOString();
+  const id = applyUrl.match(/jobs\/view\/(\d+)/)?.[1] ?? applyUrl;
+  const posted = job.job_posted_at_datetime_utc ?? new Date().toISOString();
 
   return {
     id: `job-${id}`,
@@ -96,26 +90,22 @@ function mapToJobPost(
   };
 }
 
-function extractId(applyUrl: string): string {
-  return applyUrl.match(/jobs\/view\/(\d+)/)?.[1] ?? applyUrl;
-}
-
-export async function fetchFromJSearch(
+async function fetchJSearchPage(
   params: JobSearchParams,
+  keywords: string[],
   filters?: JSearchFilters
 ): Promise<JobPost[]> {
-  const apiKey = process.env.RAPIDAPI_KEY?.trim();
-  if (!apiKey) {
-    throw new Error("RAPIDAPI_KEY is not configured");
-  }
+  const apiKey = process.env.RAPIDAPI_KEY!.trim();
+  const query = buildQuery(keywords, params.location);
+  const country = inferCountryCode(params);
 
-  const query = buildQuery(params);
   const url = new URL("https://jsearch.p.rapidapi.com/search");
   url.searchParams.set("query", query);
   url.searchParams.set("page", "1");
-  url.searchParams.set("num_pages", "2");
+  url.searchParams.set("num_pages", "3");
   url.searchParams.set("date_posted", DATE_POSTED[params.dateRange]);
-  url.searchParams.set("employment_types", "FULLTIME,PARTTIME,CONTRACTOR");
+  url.searchParams.set("country", country);
+  url.searchParams.set("language", country === "fr" ? "fr" : "en");
 
   const res = await fetch(url.toString(), {
     headers: {
@@ -134,9 +124,10 @@ export async function fetchFromJSearch(
   let rows = body.data ?? [];
 
   if (filters?.publisherPatterns?.length) {
-    rows = rows.filter((job) =>
+    const filtered = rows.filter((job) =>
       matchesPublisher(job, filters.publisherPatterns!)
     );
+    if (filtered.length > 0) rows = filtered;
   }
 
   const jobs: JobPost[] = [];
@@ -144,10 +135,38 @@ export async function fetchFromJSearch(
     const mapped = mapToJobPost(row, params.keywords);
     if (mapped) jobs.push(mapped);
   }
+  return jobs;
+}
 
-  jobs.sort(
+export async function fetchFromJSearch(
+  params: JobSearchParams,
+  filters?: JSearchFilters
+): Promise<JobPost[]> {
+  if (!isJSearchConfigured()) {
+    throw new Error("RAPIDAPI_KEY is not configured");
+  }
+
+  const plans = expandKeywordPlans(params.keywords);
+  const merged: JobPost[] = [];
+  const seen = new Set<string>();
+
+  for (const kw of plans) {
+    const batch = await fetchJSearchPage(
+      params,
+      kw,
+      filters?.publisherPatterns?.length ? filters : undefined
+    );
+    for (const job of batch) {
+      if (seen.has(job.applyUrl)) continue;
+      seen.add(job.applyUrl);
+      merged.push(job);
+    }
+    if (merged.length >= 30) break;
+  }
+
+  merged.sort(
     (a, b) => new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime()
   );
 
-  return jobs;
+  return merged;
 }
