@@ -83,7 +83,7 @@ export async function POST(request: Request) {
 
   if (searchMode === "browser") {
     const browser = await fetchLinkedInBrowser(params);
-    const extra = browserMeta(params);
+    const extra = await browserMeta(params);
     return NextResponse.json({
       jobs: browser.jobs,
       meta: {

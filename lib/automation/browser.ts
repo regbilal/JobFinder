@@ -1,4 +1,7 @@
-import { getLinkedInCookies, isLinkedInSessionConfigured } from "@/lib/automation/linkedin-session";
+import {
+  getLinkedInCookies,
+} from "@/lib/automation/linkedin-session";
+import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
 import type { Browser, BrowserContext } from "playwright-core";
 import { chromium } from "playwright-core";
 
@@ -8,17 +11,18 @@ const USER_AGENT =
 export async function withLinkedInBrowser<T>(
   fn: (context: BrowserContext) => Promise<T>
 ): Promise<T> {
-  if (!isLinkedInSessionConfigured()) {
+  const { liAt } = await resolveLinkedInLiAt();
+  if (!liAt) {
     throw new Error(
-      "LINKEDIN_LI_AT is not set. Export your session cookie from linkedin.com (see README)."
+      'Click "Connect LinkedIn" on the dashboard (or set LINKEDIN_LI_AT).'
     );
   }
 
   let browser: Browser | null = null;
   try {
     const executablePath =
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim() ||
-    process.env.CHROME_PATH?.trim();
+      process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim() ||
+      process.env.CHROME_PATH?.trim();
 
     browser = await chromium.launch({
       headless: true,
@@ -32,7 +36,7 @@ export async function withLinkedInBrowser<T>(
       viewport: { width: 1280, height: 900 },
     });
 
-    await context.addCookies(getLinkedInCookies());
+    await context.addCookies(await getLinkedInCookies());
 
     const page = await context.newPage();
     await page.goto("https://www.linkedin.com/feed/", {
@@ -42,7 +46,7 @@ export async function withLinkedInBrowser<T>(
 
     if (page.url().includes("/login") || page.url().includes("/authwall")) {
       throw new Error(
-        "LinkedIn session cookie expired or invalid. Sign in again and update LINKEDIN_LI_AT."
+        "LinkedIn session expired. Connect your account again."
       );
     }
 

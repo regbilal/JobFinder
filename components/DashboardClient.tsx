@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/components/AppShell";
 import { JobResults } from "@/components/JobResults";
+import { LinkedInConnect } from "@/components/LinkedInConnect";
 import { SearchForm, type SearchFormValues } from "@/components/SearchForm";
 import { buildLiveLinkedInResults } from "@/lib/live-linkedin-search";
 import type { JobPost, JobSearchResponse } from "@/lib/types";
@@ -91,6 +92,8 @@ export function DashboardClient() {
       subtitle="Default: Fetch from LinkedIn (no API keys). Jobs load as real listings; posts still use live links."
     >
       <div className="space-y-8">
+        <LinkedInConnect />
+
         <SearchForm onSearch={runSearch} loading={loading} />
 
         {error ? (

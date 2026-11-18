@@ -1,6 +1,7 @@
 import { fetchJobsWithBrowser } from "@/lib/automation/linkedin-browser-jobs";
 import { fetchPostsWithBrowser } from "@/lib/automation/linkedin-browser-posts";
 import { isLinkedInSessionConfigured } from "@/lib/automation/linkedin-session";
+import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
 import { filterJobsByDateRange } from "@/lib/date-range-filter";
 import { inferCountryCode } from "@/lib/search-plans";
 import type { JobPost, JobSearchParams, LinkedInContentType } from "@/lib/types";
@@ -17,12 +18,12 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
   notice: string;
   errors: string[];
 }> {
-  if (!isLinkedInSessionConfigured()) {
+  if (!(await isLinkedInSessionConfigured())) {
     return {
       jobs: [],
       notice: "",
       errors: [
-        "Set LINKEDIN_LI_AT in Vercel/your .env.local (session cookie from your browser after signing in to LinkedIn).",
+        'Click "Connect LinkedIn" on the dashboard, or set LINKEDIN_LI_AT in the server environment.',
       ],
     };
   }
@@ -59,18 +60,19 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
   return {
     jobs: chunks,
     notice:
-      "Logged-in browser mode uses your LINKEDIN_LI_AT cookie with Playwright. Run on a Node host with Chromium (local, Railway, Docker)—not typical Vercel serverless. Never commit cookies to git.",
+      "Logged-in browser mode uses your connected LinkedIn session (encrypted cookie) with Playwright. Host on Railway/Docker with Chromium.",
     errors,
   };
 }
 
-export function browserMeta(params: JobSearchParams) {
+export async function browserMeta(params: JobSearchParams) {
+  const { liAt } = await resolveLinkedInLiAt();
   return {
     searchCountry: inferCountryCode(params),
     keysConfigured: {
       rapidApi: Boolean(process.env.RAPIDAPI_KEY),
       serpApi: Boolean(process.env.SERPAPI_KEY),
     },
-    linkedInSession: isLinkedInSessionConfigured(),
+    linkedInSession: Boolean(liAt),
   };
 }

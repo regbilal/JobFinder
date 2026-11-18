@@ -93,15 +93,8 @@ export function SearchForm({
       </div>
 
       {searchMode === "browser" ? (
-        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
-          <p className="font-semibold">Session cookie required</p>
-          <p className="mt-1">
-            Set <code className="rounded bg-white/80 px-1">LINKEDIN_LI_AT</code> in
-            Vercel or <code className="rounded bg-white/80 px-1">.env.local</code>: sign in
-            at linkedin.com → DevTools → Application → Cookies → copy{" "}
-            <code className="rounded bg-white/80 px-1">li_at</code>. Needs Chromium on
-            the server (<code className="rounded bg-white/80 px-1">npx playwright install chromium</code>).
-          </p>
+        <div className="mb-5 rounded-lg border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950">
+          Use <strong>Connect LinkedIn</strong> above first, then run this search.
         </div>
       ) : null}
 

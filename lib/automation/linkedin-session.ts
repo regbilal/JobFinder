@@ -1,19 +1,11 @@
-export function isLinkedInSessionConfigured(): boolean {
-  return Boolean(process.env.LINKEDIN_LI_AT?.trim());
+import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
+
+export async function isLinkedInSessionConfigured(): Promise<boolean> {
+  const { liAt } = await resolveLinkedInLiAt();
+  return Boolean(liAt);
 }
 
-export function getLinkedInCookies(): Array<{
-  name: string;
-  value: string;
-  domain: string;
-  path: string;
-  secure: boolean;
-  httpOnly: boolean;
-  sameSite: "Lax" | "None";
-}> {
-  const liAt = process.env.LINKEDIN_LI_AT?.trim();
-  if (!liAt) return [];
-
+export function buildLinkedInPlaywrightCookies(liAt: string, jsessionId?: string) {
   const cookies = [
     {
       name: "li_at",
@@ -26,11 +18,10 @@ export function getLinkedInCookies(): Array<{
     },
   ];
 
-  const jsession = process.env.LINKEDIN_JSESSIONID?.trim();
-  if (jsession) {
+  if (jsessionId) {
     cookies.push({
       name: "JSESSIONID",
-      value: jsession.replace(/^"/, "").replace(/"$/, ""),
+      value: jsessionId.replace(/^"/, "").replace(/"$/, ""),
       domain: ".www.linkedin.com",
       path: "/",
       secure: true,
@@ -40,4 +31,22 @@ export function getLinkedInCookies(): Array<{
   }
 
   return cookies;
+}
+
+export async function getLinkedInCookies(): Promise<
+  Array<{
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    secure: boolean;
+    httpOnly: boolean;
+    sameSite: "Lax" | "None";
+  }>
+> {
+  const { liAt } = await resolveLinkedInLiAt();
+  if (!liAt) return [];
+
+  const jsession = process.env.LINKEDIN_JSESSIONID?.trim();
+  return buildLinkedInPlaywrightCookies(liAt, jsession);
 }

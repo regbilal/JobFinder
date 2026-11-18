@@ -78,11 +78,12 @@ LinkedIn may block some datacenter IPs (e.g. serverless hosts). If fetch returns
 
 ### Logged-in browser mode (Playwright)
 
-1. Sign in at [linkedin.com](https://www.linkedin.com) in Chrome/Edge.
-2. DevTools → **Application** → **Cookies** → `linkedin.com` → copy **`li_at`**.
-3. Set `LINKEDIN_LI_AT` in `.env.local` / your host env (never commit).
-4. Install Chromium: `npx playwright install chromium`
-5. On the dashboard choose **Logged-in browser**.
+1. On the dashboard click **Connect LinkedIn** (email + password once — password is not stored).
+2. Or paste `li_at` if LinkedIn shows 2FA/CAPTCHA.
+3. Choose **Logged-in browser** search mode.
+4. Optional server env `LINKEDIN_LI_AT` still works for automation without the button.
+
+**Note:** Official “Sign in with LinkedIn” OAuth does **not** hand out the `li_at` cookie required for web scraping—that permission model is for APIs, not the jobs UI. Connect uses a one-time secure login instead.
 
 This mode can return **jobs and feed posts** while authenticated. It needs a full Node server with Chromium (local `npm run dev`, Railway, Docker, VPS)—**Vercel serverless usually cannot run Playwright**.
 
