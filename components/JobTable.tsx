@@ -91,11 +91,7 @@ export function JobTable({ jobs }: { jobs: JobPost[] }) {
                     }
                     className="inline-flex rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 hover:bg-brand-100"
                   >
-                    {job.kind === "post"
-                      ? "View post"
-                      : job.applyLinkType === "search"
-                        ? "Search"
-                        : "Apply"}
+                    {job.kind === "post" ? "View post" : "Open job"}
                   </a>
                 </td>
               </tr>

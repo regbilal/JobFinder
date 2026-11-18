@@ -1,8 +1,14 @@
-import { linkedInAggregator, linkedInUsesLiveData } from "@/lib/aggregators/boards/linkedin";
+import {
+  linkedInAggregator,
+  linkedInJobsSource,
+  linkedInUsesLiveData,
+} from "@/lib/aggregators/boards/linkedin";
 import {
   fetchLinkedInPosts,
   linkedInPostsUseLiveData,
 } from "@/lib/aggregators/boards/linkedin-posts";
+import { isJSearchConfigured } from "@/lib/aggregators/jsearch/client";
+import { isSerpApiConfigured } from "@/lib/aggregators/serp/linkedin-posts";
 import type {
   JobPost,
   JobSearchParams,
@@ -37,24 +43,29 @@ function buildNotice(
   jobsLive: boolean,
   postsLive: boolean
 ): string {
+  if (!jobsLive && !postsLive) {
+    return "No API keys configured. Set RAPIDAPI_KEY (jobs via JSearch) and/or SERPAPI_KEY (jobs fallback + posts). Demo placeholders are disabled so every row links to a real LinkedIn URL.";
+  }
   const parts: string[] = [];
   if (types.includes("job")) {
-    parts.push(
-      jobsLive
-        ? "Jobs: live via JSearch (RAPIDAPI_KEY)."
-        : "Jobs: demo until RAPIDAPI_KEY is set (JSearch on RapidAPI)."
-    );
+    if (!jobsLive) {
+      parts.push("Jobs: set RAPIDAPI_KEY or SERPAPI_KEY.");
+    } else {
+      const src = linkedInJobsSource();
+      parts.push(
+        src === "jsearch"
+          ? "Jobs: JSearch with direct linkedin.com/jobs/view/ links only."
+          : "Jobs: SerpAPI indexed job URLs (linkedin.com/jobs/view/)."
+      );
+    }
   }
   if (types.includes("post")) {
     parts.push(
       postsLive
-        ? "Posts: live via SerpAPI Google index (SERPAPI_KEY)."
-        : "Posts: demo until SERPAPI_KEY is set (serpapi.com)."
+        ? "Posts: direct linkedin.com/posts/ URLs via SerpAPI."
+        : "Posts: set SERPAPI_KEY."
     );
   }
-  parts.push(
-    "Live posts are public LinkedIn URLs surfaced by search—not the official LinkedIn post search API (unavailable)."
-  );
   return parts.join(" ");
 }
 
@@ -67,34 +78,59 @@ export async function aggregateJobs(
   liveBoards: JobSource[];
   liveContent: { jobs: boolean; posts: boolean };
   notice?: string;
+  errors?: string[];
 }> {
   const contentTypes = resolveContentTypes(params);
   const jobsLive = linkedInUsesLiveData();
   const postsLive = linkedInPostsUseLiveData();
   const dataMode = resolveDataMode(jobsLive, postsLive, contentTypes);
 
-  const tasks: Promise<JobPost[]>[] = [];
+  const errors: string[] = [];
+  const chunks: JobPost[][] = [];
+
   if (contentTypes.includes("job")) {
-    tasks.push(linkedInAggregator.fetchJobs(params).catch(() => []));
-  }
-  if (contentTypes.includes("post")) {
-    tasks.push(fetchLinkedInPosts(params).catch(() => []));
+    try {
+      const jobs = await linkedInAggregator.fetchJobs(params);
+      chunks.push(jobs);
+      if (jobs.length === 0 && !jobsLive) {
+        errors.push("Job search needs RAPIDAPI_KEY or SERPAPI_KEY.");
+      }
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "Job search failed.");
+    }
   }
 
-  const results = await Promise.all(tasks);
-  const merged = dedupeJobs(results.flat());
+  if (contentTypes.includes("post")) {
+    try {
+      const posts = await fetchLinkedInPosts(params);
+      chunks.push(posts);
+      if (posts.length === 0 && !postsLive) {
+        errors.push("Post search needs SERPAPI_KEY.");
+      }
+    } catch (e) {
+      errors.push(e instanceof Error ? e.message : "Post search failed.");
+    }
+  }
+
+  const merged = dedupeJobs(chunks.flat());
   merged.sort((a, b) => b.matchScore - a.matchScore);
 
   const anyLive = (contentTypes.includes("job") && jobsLive) ||
     (contentTypes.includes("post") && postsLive);
 
+  let notice = buildNotice(contentTypes, jobsLive, postsLive);
+  if (merged.length === 0 && errors.length > 0) {
+    notice = `${notice} ${errors.join(" ")}`;
+  }
+
   return {
     jobs: merged,
     sources: ["linkedin"],
-    dataMode,
+    dataMode: merged.length > 0 && anyLive ? dataMode : "demo",
     liveBoards: anyLive ? ["linkedin"] : [],
     liveContent: { jobs: jobsLive, posts: postsLive },
-    notice: buildNotice(contentTypes, jobsLive, postsLive),
+    notice,
+    errors: errors.length > 0 ? errors : undefined,
   };
 }
 
@@ -102,10 +138,20 @@ function dedupeJobs(jobs: JobPost[]): JobPost[] {
   const seen = new Set<string>();
   const out: JobPost[] = [];
   for (const job of jobs) {
-    const key = `${job.kind}|${job.title.toLowerCase()}|${job.company.toLowerCase()}|${job.applyUrl}`;
+    const key = job.applyUrl.toLowerCase();
     if (seen.has(key)) continue;
     seen.add(key);
     out.push(job);
   }
   return out;
+}
+
+export function getConfiguredProviders(): {
+  jsearch: boolean;
+  serp: boolean;
+} {
+  return {
+    jsearch: isJSearchConfigured(),
+    serp: isSerpApiConfigured(),
+  };
 }

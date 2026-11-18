@@ -67,5 +67,6 @@ export interface JobSearchResponse {
     liveBoards: JobSource[];
     liveContent: { jobs: boolean; posts: boolean };
     notice?: string;
+    errors?: string[];
   };
 }

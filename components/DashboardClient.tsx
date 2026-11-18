@@ -76,7 +76,7 @@ export function DashboardClient() {
             {meta.notice ? (
               <p
                 className={`rounded-lg border px-3 py-2 text-xs ${
-                  meta.dataMode === "demo"
+                  meta.dataMode === "demo" || (meta.errors?.length ?? 0) > 0
                     ? "border-amber-200 bg-amber-50 text-amber-900"
                     : "border-sky-200 bg-sky-50 text-sky-900"
                 }`}

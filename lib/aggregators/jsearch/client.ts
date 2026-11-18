@@ -1,4 +1,5 @@
 import type { DateRangePreset, JobPost, JobSearchParams } from "@/lib/types";
+import { canonicalLinkedInJobUrl } from "@/lib/linkedin-url";
 import { computeMatchScore } from "@/lib/match-score";
 
 const HOST = "jsearch.p.rapidapi.com";
@@ -35,15 +36,14 @@ type JSearchResponse = {
 };
 
 export type JSearchFilters = {
-  /** Keep jobs whose publisher or apply URL matches any pattern (case-insensitive). */
   publisherPatterns?: string[];
 };
 
 function buildQuery(params: JobSearchParams): string {
   const keywords = params.keywords.join(" ");
   const loc = params.location.trim();
-  if (loc) return `${keywords} jobs in ${loc}`;
-  return keywords;
+  if (loc) return `${keywords} jobs in ${loc} site:linkedin.com`;
+  return `${keywords} linkedin jobs`;
 }
 
 function formatLocation(job: JSearchJob): string {
@@ -61,24 +61,28 @@ function matchesPublisher(job: JSearchJob, patterns: string[]): boolean {
 
 function mapToJobPost(
   job: JSearchJob,
-  source: JobPost["source"],
   keywords: string[]
 ): JobPost | null {
   const title = job.job_title?.trim();
-  const applyUrl = job.job_apply_link?.trim();
-  if (!title || !applyUrl) return null;
+  if (!title) return null;
+
+  const applyUrl = canonicalLinkedInJobUrl(
+    job.job_apply_link,
+    job.job_id
+  );
+  if (!applyUrl) return null;
 
   const snippet = (job.job_description ?? "")
     .replace(/\s+/g, " ")
     .trim()
     .slice(0, 280);
 
-  const id = job.job_id ?? `${source}-${title}-${job.employer_name}`;
+  const id = extractId(applyUrl);
   const posted =
     job.job_posted_at_datetime_utc ?? new Date().toISOString();
 
   return {
-    id,
+    id: `job-${id}`,
     kind: "job",
     title,
     company: job.employer_name?.trim() || "—",
@@ -87,14 +91,17 @@ function mapToJobPost(
     datePosted: posted,
     applyUrl,
     applyLinkType: "listing",
-    source,
+    source: "linkedin",
     descriptionSnippet: snippet || `${title} at ${job.employer_name ?? "company"}`,
   };
 }
 
+function extractId(applyUrl: string): string {
+  return applyUrl.match(/jobs\/view\/(\d+)/)?.[1] ?? applyUrl;
+}
+
 export async function fetchFromJSearch(
   params: JobSearchParams,
-  source: JobPost["source"],
   filters?: JSearchFilters
 ): Promise<JobPost[]> {
   const apiKey = process.env.RAPIDAPI_KEY?.trim();
@@ -134,7 +141,7 @@ export async function fetchFromJSearch(
 
   const jobs: JobPost[] = [];
   for (const row of rows) {
-    const mapped = mapToJobPost(row, source, params.keywords);
+    const mapped = mapToJobPost(row, params.keywords);
     if (mapped) jobs.push(mapped);
   }
 

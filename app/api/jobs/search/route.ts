@@ -75,6 +75,7 @@ export async function POST(request: Request) {
       liveBoards: result.liveBoards,
       liveContent: result.liveContent,
       notice: result.notice,
+      errors: result.errors,
     },
   });
 }

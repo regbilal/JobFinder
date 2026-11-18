@@ -1,4 +1,8 @@
 import type { DateRangePreset, JobPost, JobSearchParams } from "@/lib/types";
+import {
+  canonicalLinkedInPostUrl,
+  normalizeLinkedInUrl,
+} from "@/lib/linkedin-url";
 import { computeMatchScore } from "@/lib/match-score";
 
 export function isSerpApiConfigured(): boolean {
@@ -15,6 +19,7 @@ type SerpOrganic = {
   position?: number;
   title?: string;
   link?: string;
+  redirect_link?: string;
   snippet?: string;
   date?: string;
 };
@@ -31,20 +36,18 @@ function buildSerpQuery(params: JobSearchParams): string {
   return `site:linkedin.com/posts ${kw}${locPart}`;
 }
 
-function isLinkedInPostUrl(url: string): boolean {
-  const lower = url.toLowerCase();
-  return (
-    lower.includes("linkedin.com/posts/") ||
-    lower.includes("linkedin.com/feed/update/") ||
-    lower.includes("linkedin.com/pulse/")
-  );
+function pickRowUrl(row: SerpOrganic): string {
+  return normalizeLinkedInUrl(row.link ?? row.redirect_link ?? "");
 }
 
-function parseAuthor(title: string): string {
+function parseAuthor(title: string, snippet: string): string {
   const onLinkedIn = title.split(" - ")[0]?.trim();
-  if (onLinkedIn && onLinkedIn.length < 80) return onLinkedIn;
+  if (onLinkedIn && onLinkedIn.length < 80 && !onLinkedIn.toLowerCase().includes("linkedin"))
+    return onLinkedIn;
   const match = title.match(/^(.+?)\s+on\s+LinkedIn/i);
-  return match?.[1]?.trim() || "LinkedIn member";
+  if (match?.[1]) return match[1].trim();
+  const fromSnippet = snippet.match(/^([^.]{3,60})/);
+  return fromSnippet?.[1]?.trim() || "LinkedIn member";
 }
 
 function parsePostedDate(raw?: string): string {
@@ -82,25 +85,24 @@ export async function fetchLinkedInPostsFromSerp(
     throw new Error(body.error);
   }
 
-  const rows = (body.organic_results ?? []).filter(
-    (r) => r.link && isLinkedInPostUrl(r.link)
-  );
-
   const jobs: JobPost[] = [];
-  for (const row of rows) {
-    const title = row.title?.trim() || "LinkedIn post";
+  for (const row of body.organic_results ?? []) {
+    const applyUrl = canonicalLinkedInPostUrl(pickRowUrl(row));
+    if (!applyUrl) continue;
+
+    const title =
+      row.title?.replace(/\s*\|\s*LinkedIn\s*$/i, "").trim() || "LinkedIn post";
     const snippet = (row.snippet ?? "").trim();
-    const link = row.link!;
 
     jobs.push({
-      id: `post-${link}`,
+      id: `post-${applyUrl}`,
       kind: "post",
       title,
-      company: parseAuthor(title),
+      company: parseAuthor(title, snippet),
       location: params.location.trim() || "—",
       matchScore: computeMatchScore(params.keywords, title, snippet),
       datePosted: parsePostedDate(row.date),
-      applyUrl: link,
+      applyUrl,
       applyLinkType: "listing",
       source: "linkedin",
       descriptionSnippet: snippet || title,
