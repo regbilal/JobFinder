@@ -52,21 +52,69 @@ export async function unsealLiAt(sealed: string): Promise<string | null> {
   }
 }
 
-export async function resolveLinkedInLiAt(): Promise<{
+export type LinkedInStoredSession = {
+  liAt: string;
+  jsessionId?: string;
+};
+
+function parseStoredSession(plain: string): LinkedInStoredSession | null {
+  const trimmed = plain.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("{")) {
+    try {
+      const data = JSON.parse(trimmed) as LinkedInStoredSession;
+      if (typeof data.liAt === "string" && data.liAt.length > 10) return data;
+    } catch {
+      return null;
+    }
+  }
+  if (trimmed.length > 20) return { liAt: trimmed };
+  return null;
+}
+
+export async function sealLinkedInSession(
+  session: LinkedInStoredSession
+): Promise<string> {
+  return sealLiAt(JSON.stringify(session));
+}
+
+export async function resolveLinkedInSession(): Promise<{
   liAt: string | null;
+  jsessionId: string | null;
   source: "env" | "cookie" | "none";
 }> {
   const fromEnv = process.env.LINKEDIN_LI_AT?.trim();
-  if (fromEnv) return { liAt: fromEnv, source: "env" };
+  if (fromEnv) {
+    return {
+      liAt: fromEnv,
+      jsessionId: process.env.LINKEDIN_JSESSIONID?.trim() ?? null,
+      source: "env",
+    };
+  }
 
   const jar = await cookies();
   const sealed = jar.get(LINKEDIN_SESSION_COOKIE)?.value;
   if (sealed) {
-    const liAt = await unsealLiAt(sealed);
-    if (liAt) return { liAt, source: "cookie" };
+    const plain = await unsealLiAt(sealed);
+    const session = plain ? parseStoredSession(plain) : null;
+    if (session) {
+      return {
+        liAt: session.liAt,
+        jsessionId: session.jsessionId ?? null,
+        source: "cookie",
+      };
+    }
   }
 
-  return { liAt: null, source: "none" };
+  return { liAt: null, jsessionId: null, source: "none" };
+}
+
+export async function resolveLinkedInLiAt(): Promise<{
+  liAt: string | null;
+  source: "env" | "cookie" | "none";
+}> {
+  const { liAt, source } = await resolveLinkedInSession();
+  return { liAt, source };
 }
 
 export function linkedInSessionCookieOptions(maxAge = 60 * 60 * 24 * 30) {

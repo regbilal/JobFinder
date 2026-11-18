@@ -7,16 +7,31 @@ const LINKEDIN_F_TPR: Partial<Record<DateRangePreset, string>> = {
   "3months": "r7776000",
 };
 
+export type ContentSearchUrlOptions = {
+  /** Playwright: datePosted query often causes redirect loops. */
+  forBrowser?: boolean;
+  includeLocationInKeywords?: boolean;
+};
+
 export function buildLinkedInContentSearchUrl(
   keywords: string,
   location?: string,
-  dateRange?: DateRangePreset
+  dateRange?: DateRangePreset,
+  opts?: ContentSearchUrlOptions
 ): string {
-  const query = [keywords, location].filter(Boolean).join(" ");
+  const includeLoc = opts?.includeLocationInKeywords ?? !opts?.forBrowser;
+  const query = includeLoc
+    ? [keywords, location].filter(Boolean).join(" ")
+    : keywords.trim();
   const params = new URLSearchParams({ keywords: query });
-  if (dateRange === "24h") params.set("datePosted", "past-24h");
-  if (dateRange === "week") params.set("datePosted", "past-week");
-  if (dateRange === "month") params.set("datePosted", "past-month");
+  params.set("origin", "GLOBAL_SEARCH_HEADER");
+
+  const skipDate = opts?.forBrowser === true;
+  if (!skipDate) {
+    if (dateRange === "24h") params.set("datePosted", "past-24h");
+    if (dateRange === "week") params.set("datePosted", "past-week");
+    if (dateRange === "month") params.set("datePosted", "past-month");
+  }
   return `https://www.linkedin.com/search/results/content/?${params.toString()}`;
 }
 

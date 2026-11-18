@@ -3,7 +3,7 @@ import { loginLinkedInWithCredentials } from "@/lib/automation/linkedin-login";
 import {
   LINKEDIN_SESSION_COOKIE,
   linkedInSessionCookieOptions,
-  sealLiAt,
+  sealLinkedInSession,
 } from "@/lib/linkedin-cookie-store";
 
 export const maxDuration = 120;
@@ -18,7 +18,7 @@ export async function POST(request: Request) {
   }
 
   if (typeof body.liAt === "string" && body.liAt.trim().length > 20) {
-    const sealed = await sealLiAt(body.liAt.trim());
+    const sealed = await sealLinkedInSession({ liAt: body.liAt.trim() });
     const response = NextResponse.json({ ok: true, method: "paste" });
     response.cookies.set(
       LINKEDIN_SESSION_COOKIE,
@@ -42,7 +42,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: result.reason }, { status: 401 });
   }
 
-  const sealed = await sealLiAt(result.liAt);
+  const sealed = await sealLinkedInSession({
+    liAt: result.liAt,
+    jsessionId: result.jsessionId,
+  });
   const response = NextResponse.json({ ok: true, method: "login" });
   response.cookies.set(
     LINKEDIN_SESSION_COOKIE,

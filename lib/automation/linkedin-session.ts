@@ -1,7 +1,7 @@
-import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
+import { resolveLinkedInSession } from "@/lib/linkedin-cookie-store";
 
 export async function isLinkedInSessionConfigured(): Promise<boolean> {
-  const { liAt } = await resolveLinkedInLiAt();
+  const { liAt } = await resolveLinkedInSession();
   return Boolean(liAt);
 }
 
@@ -44,9 +44,8 @@ export async function getLinkedInCookies(): Promise<
     sameSite: "Lax" | "None";
   }>
 > {
-  const { liAt } = await resolveLinkedInLiAt();
+  const { liAt, jsessionId } = await resolveLinkedInSession();
   if (!liAt) return [];
 
-  const jsession = process.env.LINKEDIN_JSESSIONID?.trim();
-  return buildLinkedInPlaywrightCookies(liAt, jsession);
+  return buildLinkedInPlaywrightCookies(liAt, jsessionId ?? undefined);
 }

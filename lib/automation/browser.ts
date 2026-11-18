@@ -1,6 +1,7 @@
 import {
   getLinkedInCookies,
 } from "@/lib/automation/linkedin-session";
+import { assertLinkedInSession, warmLinkedInHome } from "@/lib/automation/linkedin-page";
 import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
 import type { BrowserContext } from "playwright-core";
 import { launchChromium } from "@/lib/automation/chromium-launch";
@@ -28,19 +29,20 @@ export async function withLinkedInBrowser<T>(
       viewport: { width: 1280, height: 900 },
     });
 
-    await context.addCookies(await getLinkedInCookies());
+    const seeded = await getLinkedInCookies();
+    await context.addCookies([
+      ...seeded,
+      {
+        name: "lang",
+        value: "v=2&lang=fr-fr",
+        domain: ".linkedin.com",
+        path: "/",
+      },
+    ]);
 
     const page = await context.newPage();
-    await page.goto("https://www.linkedin.com/feed/", {
-      waitUntil: "domcontentloaded",
-      timeout: 45_000,
-    });
-
-    if (page.url().includes("/login") || page.url().includes("/authwall")) {
-      throw new Error(
-        "LinkedIn session expired. Connect your account again."
-      );
-    }
+    await warmLinkedInHome(page);
+    assertLinkedInSession(page);
 
     return await fn(context);
   } finally {

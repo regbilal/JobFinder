@@ -1,8 +1,23 @@
 import { withLinkedInBrowser } from "@/lib/automation/browser";
+import { gotoLinkedIn } from "@/lib/automation/linkedin-page";
 import { buildLinkedInJobSearchUrl } from "@/lib/job-board-urls";
 import { computeMatchScore } from "@/lib/match-score";
+import {
+  parseGuestJobSearchHtml,
+} from "@/lib/scrapers/linkedin-guest-jobs";
 import { expandKeywordPlans } from "@/lib/search-plans";
+import type { BrowserContext, Page } from "playwright-core";
 import type { JobPost, JobSearchParams } from "@/lib/types";
+
+const GUEST_ENDPOINT =
+  "https://www.linkedin.com/jobs-guest/jobs/api/seeMoreJobPostings/search";
+
+const F_TPR: Partial<Record<JobSearchParams["dateRange"], string>> = {
+  "24h": "r86400",
+  week: "r604800",
+  month: "r2592000",
+  "3months": "r7776000",
+};
 
 type ScrapedJob = {
   title: string;
@@ -12,101 +27,183 @@ type ScrapedJob = {
   snippet: string;
 };
 
-export async function fetchJobsWithBrowser(
+function guestSearchUrl(
+  keywords: string[],
+  location: string,
+  dateRange: JobSearchParams["dateRange"],
+  start: number
+): string {
+  const url = new URL(GUEST_ENDPOINT);
+  url.searchParams.set("keywords", keywords.join(" "));
+  if (location.trim()) url.searchParams.set("location", location.trim());
+  url.searchParams.set("start", String(start));
+  url.searchParams.set("count", "25");
+  const tpr = F_TPR[dateRange];
+  if (tpr) url.searchParams.set("f_TPR", tpr);
+  return url.toString();
+}
+
+async function fetchGuestJobsInBrowser(
+  page: Page,
+  kw: string[],
+  params: JobSearchParams
+): Promise<JobPost[]> {
+  const out: JobPost[] = [];
+  for (const start of [0, 25]) {
+    const res = await page.request.get(
+      guestSearchUrl(kw, params.location, params.dateRange, start),
+      {
+        headers: {
+          Accept: "text/html,application/xhtml+xml",
+          "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+        },
+      }
+    );
+    if (!res.ok()) break;
+    const html = await res.text();
+    const batch = parseGuestJobSearchHtml(html, params.keywords).map((job) => ({
+      ...job,
+      dataProvider: "browser" as const,
+    }));
+    if (batch.length === 0) break;
+    out.push(...batch);
+  }
+  return out;
+}
+
+async function scrapeJobsFromDom(page: Page): Promise<ScrapedJob[]> {
+  await page
+    .waitForSelector('a[href*="/jobs/view/"]', { timeout: 20_000 })
+    .catch(() => undefined);
+
+  await page.evaluate(() => {
+    window.scrollTo(0, document.body.scrollHeight / 2);
+  });
+  await page.waitForTimeout(1200);
+
+  return page.evaluate(() => {
+    const results: ScrapedJob[] = [];
+    const seen = new Set<string>();
+
+    const pushCard = (card: Element, link: HTMLAnchorElement) => {
+      const href = link.href.split("?")[0];
+      if (!href.includes("/jobs/view/") || seen.has(href)) return;
+      seen.add(href);
+
+      const title =
+        link.textContent?.trim() ||
+        card.querySelector(".job-card-list__title")?.textContent?.trim() ||
+        card.querySelector("h3")?.textContent?.trim() ||
+        "";
+      if (!title) return;
+
+      const company =
+        card
+          .querySelector(
+            ".job-card-container__company-name, .artdeco-entity-lockup__subtitle, h4"
+          )
+          ?.textContent?.trim() || "—";
+
+      const location =
+        card
+          .querySelector(
+            ".job-card-container__metadata-item, .job-card-container__metadata-wrapper, .job-search-card__location"
+          )
+          ?.textContent?.trim() || "—";
+
+      const id = href.match(/jobs\/view\/(\d+)/)?.[1];
+      const applyUrl = id
+        ? `https://www.linkedin.com/jobs/view/${id}`
+        : href;
+
+      results.push({
+        title,
+        company,
+        location,
+        applyUrl,
+        snippet: `${title} — ${company}`,
+      });
+    };
+
+    document
+      .querySelectorAll(
+        ".job-card-container, .jobs-search-results__list-item, li.jobs-search-results__list-item"
+      )
+      .forEach((card) => {
+        const link = card.querySelector<HTMLAnchorElement>(
+          "a[href*='/jobs/view/']"
+        );
+        if (link) pushCard(card, link);
+      });
+
+    document.querySelectorAll<HTMLAnchorElement>("a[href*='/jobs/view/']").forEach((link) => {
+      const card = link.closest("li, div") ?? link;
+      pushCard(card, link);
+    });
+
+    return results;
+  });
+}
+
+async function runJobsInContext(
+  context: BrowserContext,
   params: JobSearchParams
 ): Promise<JobPost[]> {
   const plans = expandKeywordPlans(params.keywords).slice(0, 5);
   const merged: JobPost[] = [];
   const seen = new Set<string>();
 
-  await withLinkedInBrowser(async (context) => {
-    const page = context.pages()[0] ?? (await context.newPage());
+  const page = context.pages()[0] ?? (await context.newPage());
 
-    for (const kw of plans) {
+  for (const kw of plans) {
+    let batch: JobPost[] = [];
+    try {
+      batch = await fetchGuestJobsInBrowser(page, kw, params);
+    } catch {
+      batch = [];
+    }
+
+    if (batch.length === 0) {
       const url = buildLinkedInJobSearchUrl({
         keywords: kw.join(" "),
         location: params.location,
         dateRange: params.dateRange,
       });
-
-      await page.goto(url, { waitUntil: "domcontentloaded", timeout: 60_000 });
+      await gotoLinkedIn(page, url);
       await page.waitForTimeout(2000);
 
-      const batch = await page.evaluate(() => {
-        const results: ScrapedJob[] = [];
-        const cards = document.querySelectorAll(
-          ".job-card-container, .jobs-search-results__list-item, li.jobs-search-results__list-item"
-        );
-
-        cards.forEach((card) => {
-          const link =
-            card.querySelector<HTMLAnchorElement>(
-              "a[href*='/jobs/view/'], a.job-card-list__title"
-            ) ??
-            card.querySelector<HTMLAnchorElement>("a[href*='/jobs/view/']");
-          if (!link?.href) return;
-
-          const title =
-            link.textContent?.trim() ||
-            card.querySelector(".job-card-list__title")?.textContent?.trim() ||
-            "";
-          if (!title) return;
-
-          const company =
-            card
-              .querySelector(
-                ".job-card-container__company-name, .artdeco-entity-lockup__subtitle"
-              )
-              ?.textContent?.trim() || "—";
-
-          const location =
-            card
-              .querySelector(
-                ".job-card-container__metadata-item, .job-card-container__metadata-wrapper"
-              )
-              ?.textContent?.trim() || "—";
-
-          const id = link.href.match(/jobs\/view\/(\d+)/)?.[1];
-          const applyUrl = id
-            ? `https://www.linkedin.com/jobs/view/${id}`
-            : link.href.split("?")[0];
-
-          results.push({
-            title,
-            company,
-            location,
-            applyUrl,
-            snippet: `${title} — ${company}`,
-          });
-        });
-
-        return results;
-      });
-
-      for (const row of batch) {
-        if (seen.has(row.applyUrl)) continue;
-        seen.add(row.applyUrl);
-        merged.push({
-          id: `browser-${row.applyUrl.match(/(\d+)/)?.[1] ?? row.applyUrl}`,
-          kind: "job",
-          title: row.title,
-          company: row.company,
-          location: row.location || params.location || "—",
-          matchScore: computeMatchScore(
-            params.keywords,
-            row.title,
-            row.snippet
-          ),
-          datePosted: new Date().toISOString(),
-          applyUrl: row.applyUrl,
-          applyLinkType: "listing",
-          source: "linkedin",
-          dataProvider: "browser",
-          descriptionSnippet: row.snippet,
-        });
-      }
+      const dom = await scrapeJobsFromDom(page);
+      batch = dom.map((row) => ({
+        id: `browser-${row.applyUrl.match(/(\d+)/)?.[1] ?? row.applyUrl}`,
+        kind: "job" as const,
+        title: row.title,
+        company: row.company,
+        location: row.location || params.location || "—",
+        matchScore: computeMatchScore(params.keywords, row.title, row.snippet),
+        datePosted: new Date().toISOString(),
+        applyUrl: row.applyUrl,
+        applyLinkType: "listing" as const,
+        source: "linkedin" as const,
+        dataProvider: "browser" as const,
+        descriptionSnippet: row.snippet,
+      }));
     }
-  });
+
+    for (const job of batch) {
+      if (seen.has(job.applyUrl)) continue;
+      seen.add(job.applyUrl);
+      merged.push(job);
+    }
+    if (merged.length >= 40) break;
+  }
 
   return merged;
+}
+
+export async function fetchJobsWithBrowser(
+  params: JobSearchParams,
+  context?: BrowserContext
+): Promise<JobPost[]> {
+  if (context) return runJobsInContext(context, params);
+  return withLinkedInBrowser((ctx) => runJobsInContext(ctx, params));
 }

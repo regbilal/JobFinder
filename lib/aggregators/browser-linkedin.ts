@@ -1,3 +1,4 @@
+import { withLinkedInBrowser } from "@/lib/automation/browser";
 import { formatPlaywrightLaunchError } from "@/lib/automation/chromium-launch";
 import { fetchJobsWithBrowser } from "@/lib/automation/linkedin-browser-jobs";
 import { fetchPostsWithBrowser } from "@/lib/automation/linkedin-browser-posts";
@@ -32,30 +33,40 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
   const contentTypes = resolveContentTypes(params.contentTypes);
   const errors: string[] = [];
   const chunks: JobPost[] = [];
+  const wantJobs = contentTypes.includes("job");
+  const wantPosts = contentTypes.includes("post");
 
-  if (contentTypes.includes("job")) {
-    try {
-      let jobs = await fetchJobsWithBrowser(params);
-      jobs = filterJobsByDateRange(jobs, params.dateRange);
-      chunks.push(...jobs);
-      if (jobs.length === 0) {
-        errors.push("No job cards found in browser session—check keywords/location.");
+  try {
+    await withLinkedInBrowser(async (context) => {
+      if (wantJobs) {
+        try {
+          let jobs = await fetchJobsWithBrowser(params, context);
+          jobs = filterJobsByDateRange(jobs, params.dateRange);
+          chunks.push(...jobs);
+          if (jobs.length === 0) {
+            errors.push(
+              "No jobs in this session—try France as location, reconnect LinkedIn (fresh li_at), or use Guest fetch mode."
+            );
+          }
+        } catch (e) {
+          errors.push(formatPlaywrightLaunchError(e));
+        }
       }
-    } catch (e) {
-      errors.push(formatPlaywrightLaunchError(e));
-    }
-  }
 
-  if (contentTypes.includes("post")) {
-    try {
-      const posts = await fetchPostsWithBrowser(params);
-      chunks.push(...posts);
-      if (posts.length === 0) {
-        errors.push("No posts found in content search.");
+      if (wantPosts) {
+        try {
+          const posts = await fetchPostsWithBrowser(params, context);
+          chunks.push(...posts);
+          if (posts.length === 0) {
+            errors.push("No posts in content search—try shorter keywords or job-only.");
+          }
+        } catch (e) {
+          errors.push(formatPlaywrightLaunchError(e));
+        }
       }
-    } catch (e) {
-      errors.push(formatPlaywrightLaunchError(e));
-    }
+    });
+  } catch (e) {
+    errors.push(formatPlaywrightLaunchError(e));
   }
 
   return {
