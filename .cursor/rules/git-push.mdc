@@ -1,0 +1,16 @@
+---
+description: After code changes, commit and push to origin when appropriate
+alwaysApply: true
+---
+
+# Git push workflow
+
+When you finish a task that changes project code:
+
+1. Run `npm run build` when the change affects the Next.js app.
+2. **Commit** with a clear message if there are uncommitted changes.
+3. **`git push origin main`** (or the active branch) unless the user asked not to push.
+
+Do not push secrets (`.env`, `.env.local`). Do not force-push without explicit user request.
+
+If the user says "always push," treat that as the default for this repo going forward.
