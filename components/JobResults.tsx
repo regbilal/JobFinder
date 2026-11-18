@@ -2,8 +2,7 @@
 
 import { ExportReport } from "@/components/ExportReport";
 import { JobTable } from "@/components/JobTable";
-import type { JobPost, JobSource } from "@/lib/types";
-import { JOB_SOURCE_LABELS } from "@/lib/types";
+import type { JobPost, LinkedInContentKind } from "@/lib/types";
 import { useMemo, useState } from "react";
 
 export function JobResults({
@@ -17,23 +16,20 @@ export function JobResults({
 }) {
   const [query, setQuery] = useState("");
   const [minScore, setMinScore] = useState(0);
-  const [source, setSource] = useState<JobSource | "all">("all");
+  const [kindFilter, setKindFilter] = useState<LinkedInContentKind | "all">(
+    "all"
+  );
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     return jobs.filter((job) => {
       if (job.matchScore < minScore) return false;
-      if (source !== "all" && job.source !== source) return false;
+      if (kindFilter !== "all" && job.kind !== kindFilter) return false;
       if (!q) return true;
       const haystack = `${job.title} ${job.company} ${job.location}`.toLowerCase();
       return haystack.includes(q);
     });
-  }, [jobs, query, minScore, source]);
-
-  const sourcesInResults = useMemo(() => {
-    const set = new Set(jobs.map((j) => j.source));
-    return Array.from(set);
-  }, [jobs]);
+  }, [jobs, query, minScore, kindFilter]);
 
   return (
     <div className="space-y-4">
@@ -51,6 +47,20 @@ export function JobResults({
             />
           </div>
           <div>
+            <label className="text-xs font-medium text-slate-600">Type</label>
+            <select
+              value={kindFilter}
+              onChange={(e) =>
+                setKindFilter(e.target.value as LinkedInContentKind | "all")
+              }
+              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
+            >
+              <option value="all">Jobs + posts</option>
+              <option value="job">Job listings only</option>
+              <option value="post">Posts only</option>
+            </select>
+          </div>
+          <div>
             <label className="text-xs font-medium text-slate-600">
               Min match ({minScore}%)
             </label>
@@ -63,23 +73,6 @@ export function JobResults({
               onChange={(e) => setMinScore(Number(e.target.value))}
               className="mt-2 w-full accent-brand-600"
             />
-          </div>
-          <div>
-            <label className="text-xs font-medium text-slate-600">Source</label>
-            <select
-              value={source}
-              onChange={(e) =>
-                setSource(e.target.value as JobSource | "all")
-              }
-              className="mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm"
-            >
-              <option value="all">All sources</option>
-              {sourcesInResults.map((s) => (
-                <option key={s} value={s}>
-                  {JOB_SOURCE_LABELS[s]}
-                </option>
-              ))}
-            </select>
           </div>
         </div>
         <p className="text-sm text-slate-600">

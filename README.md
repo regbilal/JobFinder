@@ -1,10 +1,10 @@
 # JobFinder
 
-Modern job aggregation dashboard built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**. Search across multiple job boards (modular aggregators), filter results, and export reports. Access is protected by a single shared password (`APP_PASSWORD`).
+**LinkedIn job search** dashboard built with **Next.js (App Router)**, **TypeScript**, and **Tailwind CSS**. Search **job postings** (official listings—not LinkedIn feed posts), filter results, and export reports. Access is protected by `APP_PASSWORD`.
 
 ## Features
 
-- Search form: comma-separated keywords, location, date range, per-board toggles
+- Search form: comma-separated keywords, location, date range (LinkedIn only)
 - Aggregated results with match score, source, apply links
 - Client-side filters (text, minimum match %, source)
 - Export filtered results as **CSV**, **JSON**, or on-screen **summary**
@@ -28,8 +28,29 @@ Open [http://localhost:3000](http://localhost:3000). You will be redirected to `
 |----------------|----------|-------------|
 | `APP_PASSWORD` | Yes      | Shared password for dashboard access |
 | `AUTH_SECRET`  | No       | HMAC secret for session cookies (defaults to `APP_PASSWORD`) |
+| `RAPIDAPI_KEY` | No       | [JSearch on RapidAPI](https://rapidapi.com/letscrape-6bRBa3QguO5/api/jsearch) — live **job listings** |
+| `SERPAPI_KEY`  | No       | [SerpAPI](https://serpapi.com/) — live **feed posts** via `site:linkedin.com/posts` Google search |
 
 Copy from `.env.example` and never commit real secrets.
+
+### Demo vs live results
+
+By default, JobFinder shows **simulated** rows (`lib/aggregators/simulator.ts`) so the UI works without paid APIs. They are **not** real job posts.
+
+**LinkedIn** does not offer a public “search all jobs” API for indie apps. Scraping LinkedIn yourself breaks their Terms of Service and is brittle. The supported path in this repo is:
+
+1. Subscribe to **JSearch** on RapidAPI (aggregates listings from LinkedIn and other publishers).
+2. Set `RAPIDAPI_KEY` in `.env.local` / Vercel.
+3. Enable the **LinkedIn** board in search — results use real `job_apply_link` URLs and show **Apply** (not **Search**).
+
+### Jobs + feed posts (LinkedIn only)
+
+| Surface | Live data | API key |
+|---------|-----------|---------|
+| **Job listings** | JSearch → LinkedIn publisher | `RAPIDAPI_KEY` |
+| **Feed posts** | SerpAPI Google index of `linkedin.com/posts` | `SERPAPI_KEY` |
+
+LinkedIn does not offer a public post-search API. Post results use indexed public URLs (coverage and freshness follow Google/SerpAPI, not LinkedIn directly). Demo mode uses placeholders when keys are missing.
 
 ## Project structure
 

@@ -2,26 +2,21 @@
 
 import {
   DATE_RANGE_LABELS,
-  JOB_SOURCE_LABELS,
+  LINKEDIN_CONTENT_LABELS,
   type DateRangePreset,
-  type JobSource,
+  type LinkedInContentType,
 } from "@/lib/types";
-import { FormEvent, useState } from "react";
 import clsx from "clsx";
+import { FormEvent, useState } from "react";
 
 export interface SearchFormValues {
   keywords: string;
   location: string;
   dateRange: DateRangePreset;
-  sources: JobSource[];
+  contentTypes: LinkedInContentType[];
 }
 
-const ALL_SOURCES: JobSource[] = [
-  "linkedin",
-  "indeed",
-  "glassdoor",
-  "regional",
-];
+const CONTENT_OPTIONS: LinkedInContentType[] = ["job", "post"];
 
 export function SearchForm({
   onSearch,
@@ -35,18 +30,23 @@ export function SearchForm({
   );
   const [location, setLocation] = useState("");
   const [dateRange, setDateRange] = useState<DateRangePreset>("week");
-  const [sources, setSources] = useState<JobSource[]>(ALL_SOURCES);
+  const [contentTypes, setContentTypes] =
+    useState<LinkedInContentType[]>(CONTENT_OPTIONS);
 
-  function toggleSource(id: JobSource) {
-    setSources((prev) =>
-      prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]
-    );
+  function toggleContent(type: LinkedInContentType) {
+    setContentTypes((prev) => {
+      if (prev.includes(type)) {
+        const next = prev.filter((t) => t !== type);
+        return next.length === 0 ? prev : next;
+      }
+      return [...prev, type];
+    });
   }
 
   function onSubmit(e: FormEvent) {
     e.preventDefault();
-    if (sources.length === 0) return;
-    onSearch({ keywords, location, dateRange, sources });
+    if (contentTypes.length === 0) return;
+    onSearch({ keywords, location, dateRange, contentTypes });
   }
 
   return (
@@ -54,16 +54,50 @@ export function SearchForm({
       onSubmit={onSubmit}
       className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
     >
+      <div className="mb-4 flex gap-2 rounded-lg border border-[#0a66c2]/20 bg-[#0a66c2]/5 px-3 py-2 text-xs text-slate-700">
+        <LinkedInIcon />
+        <span>
+          <strong className="font-semibold text-[#0a66c2]">LinkedIn only.</strong>{" "}
+          Search <em>job listings</em> and/or public <em>feed posts</em> (hiring
+          updates, “we’re hiring” posts). Live data needs API keys—see dashboard notice
+          after search.
+        </span>
+      </div>
+
+      <div className="mb-5">
+        <p className="text-sm font-medium text-slate-700">Search on</p>
+        <div className="mt-2 flex flex-wrap gap-2">
+          {CONTENT_OPTIONS.map((type) => {
+            const on = contentTypes.includes(type);
+            return (
+              <button
+                key={type}
+                type="button"
+                onClick={() => toggleContent(type)}
+                className={clsx(
+                  "rounded-full border px-3 py-1 text-xs font-medium transition",
+                  on
+                    ? "border-[#0a66c2]/40 bg-[#0a66c2]/10 text-[#004182]"
+                    : "border-slate-200 bg-slate-50 text-slate-600"
+                )}
+              >
+                {LINKEDIN_CONTENT_LABELS[type]}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
       <div className="grid gap-5 lg:grid-cols-2">
         <div className="lg:col-span-2">
           <label className="block text-sm font-medium text-slate-700">
-            Job descriptions / keywords
+            Keywords
           </label>
           <input
             value={keywords}
             onChange={(e) => setKeywords(e.target.value)}
             className="mt-1.5 w-full rounded-lg border border-slate-300 px-3 py-2.5 text-sm shadow-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/30"
-            placeholder="Senior .NET Developer, Azure AI"
+            placeholder="Senior .NET Developer, Azure AI, hiring"
           />
           <p className="mt-1 text-xs text-slate-500">
             Comma-separated skills, titles, or phrases.
@@ -98,50 +132,30 @@ export function SearchForm({
             ))}
           </select>
         </div>
-
-        <div className="lg:col-span-2">
-          <p className="text-sm font-medium text-slate-700">Job boards</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {ALL_SOURCES.map((id) => {
-              const active = sources.includes(id);
-              return (
-                <button
-                  key={id}
-                  type="button"
-                  onClick={() => toggleSource(id)}
-                  className={clsx(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition",
-                    active
-                      ? "border-brand-300 bg-brand-50 text-brand-800"
-                      : "border-slate-200 bg-slate-50 text-slate-600 hover:border-slate-300"
-                  )}
-                >
-                  {JOB_SOURCE_LABELS[id]}
-                </button>
-              );
-            })}
-          </div>
-          <p className="mt-1 text-xs text-slate-500">
-            Modular aggregators (simulated). Swap implementations under{" "}
-            <code className="rounded bg-slate-100 px-1">lib/aggregators</code>.
-          </p>
-        </div>
       </div>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="mt-6">
         <button
           type="submit"
-          disabled={loading}
-          className="rounded-lg bg-brand-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-brand-700 disabled:opacity-60"
+          disabled={loading || contentTypes.length === 0}
+          className="rounded-lg bg-[#0a66c2] px-5 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-[#004182] disabled:opacity-60"
         >
-          {loading ? "Searching boards…" : "Search jobs"}
+          {loading ? "Searching LinkedIn…" : "Search LinkedIn"}
         </button>
-        {sources.length === 0 ? (
-          <span className="text-xs text-amber-700">
-            Select at least one job board.
-          </span>
-        ) : null}
       </div>
     </form>
+  );
+}
+
+function LinkedInIcon() {
+  return (
+    <svg
+      className="mt-0.5 h-4 w-4 shrink-0 text-[#0a66c2]"
+      viewBox="0 0 24 24"
+      fill="currentColor"
+      aria-hidden
+    >
+      <path d="M20.447 20.452h-3.554v-5.569c0-1.328-.027-3.037-1.852-3.037-1.853 0-2.136 1.445-2.136 2.939v5.667H9.351V9h3.414v1.561h.046c.477-.9 1.637-1.85 3.37-1.85 3.601 0 4.267 2.37 4.267 5.455v6.286zM5.337 7.433a2.062 2.062 0 01-2.063-2.065 2.064 2.064 0 114.127 0 2.063 2.063 0 01-2.063 2.065zm1.782 13.019H3.555V9h3.564v11.452zM22.225 0H1.771C.792 0 0 .774 0 1.729v20.542C0 23.227.792 24 1.771 24h20.451C23.2 24 24 23.227 24 22.271V1.729C24 .774 23.2 0 22.222 0h.003z" />
+    </svg>
   );
 }

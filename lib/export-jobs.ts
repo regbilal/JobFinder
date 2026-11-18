@@ -1,8 +1,9 @@
 import type { JobPost } from "@/lib/types";
-import { JOB_SOURCE_LABELS } from "@/lib/types";
+import { JOB_SOURCE_LABELS, LINKEDIN_CONTENT_LABELS } from "@/lib/types";
 
 export function jobsToCsv(jobs: JobPost[]): string {
   const headers = [
+    "Type",
     "Title",
     "Company",
     "Location",
@@ -13,6 +14,7 @@ export function jobsToCsv(jobs: JobPost[]): string {
   ];
   const rows = jobs.map((j) =>
     [
+      LINKEDIN_CONTENT_LABELS[j.kind],
       j.title,
       j.company,
       j.location,

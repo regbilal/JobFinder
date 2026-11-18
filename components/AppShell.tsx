@@ -26,14 +26,14 @@ export function AppShell({
         <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4 sm:px-6">
           <div>
             <Link href="/dashboard" className="group inline-flex items-center gap-2">
-              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-brand-600 text-sm font-bold text-white shadow-sm">
-                JF
+              <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-[#0a66c2] text-sm font-bold text-white shadow-sm">
+                in
               </span>
               <div>
-                <p className="text-sm font-semibold text-slate-900 group-hover:text-brand-700">
+                <p className="text-sm font-semibold text-slate-900 group-hover:text-[#0a66c2]">
                   JobFinder
                 </p>
-                <p className="text-xs text-slate-500">Multi-board job search</p>
+                <p className="text-xs text-slate-500">LinkedIn job postings</p>
               </div>
             </Link>
           </div>

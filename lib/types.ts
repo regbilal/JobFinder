@@ -13,17 +13,19 @@ export const DATE_RANGE_LABELS: Record<DateRangePreset, string> = {
   any: "Any time",
 };
 
-export type JobSource =
-  | "linkedin"
-  | "indeed"
-  | "glassdoor"
-  | "regional";
+export type JobSource = "linkedin";
 
 export const JOB_SOURCE_LABELS: Record<JobSource, string> = {
   linkedin: "LinkedIn",
-  indeed: "Indeed",
-  glassdoor: "Glassdoor",
-  regional: "Regional boards",
+};
+
+export type LinkedInContentKind = "job" | "post";
+
+export type LinkedInContentType = LinkedInContentKind;
+
+export const LINKEDIN_CONTENT_LABELS: Record<LinkedInContentKind, string> = {
+  job: "Job listing",
+  post: "Feed post",
 };
 
 export interface JobSearchParams {
@@ -31,6 +33,8 @@ export interface JobSearchParams {
   location: string;
   dateRange: DateRangePreset;
   sources?: JobSource[];
+  /** Which LinkedIn surfaces to search (default both). */
+  contentTypes?: LinkedInContentType[];
 }
 
 /** Listing = direct posting URL; search = opens a filtered search on that board (demo/simulated). */
@@ -38,6 +42,7 @@ export type ApplyLinkType = "listing" | "search";
 
 export interface JobPost {
   id: string;
+  kind: LinkedInContentKind;
   title: string;
   company: string;
   location: string;
@@ -49,6 +54,8 @@ export interface JobPost {
   descriptionSnippet: string;
 }
 
+export type JobsDataMode = "live" | "demo" | "mixed";
+
 export interface JobSearchResponse {
   jobs: JobPost[];
   meta: {
@@ -56,5 +63,9 @@ export interface JobSearchResponse {
     queriedAt: string;
     sources: JobSource[];
     params: JobSearchParams;
+    dataMode: JobsDataMode;
+    liveBoards: JobSource[];
+    liveContent: { jobs: boolean; posts: boolean };
+    notice?: string;
   };
 }

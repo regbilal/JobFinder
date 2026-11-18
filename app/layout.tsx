@@ -13,8 +13,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "JobFinder",
-  description: "Aggregate and search job listings across global job boards",
+  title: "JobFinder — LinkedIn jobs",
+  description:
+    "Search LinkedIn job postings by keywords and location. Not feed posts—official job listings only.",
 };
 
 export default function RootLayout({

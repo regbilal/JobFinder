@@ -17,10 +17,6 @@ export function DashboardClient() {
   const [meta, setMeta] = useState<JobSearchResponse["meta"] | null>(null);
 
   async function runSearch(values: SearchFormValues) {
-    if (values.sources.length === 0) {
-      setError("Select at least one job board.");
-      return;
-    }
     setError("");
     setLoading(true);
     try {
@@ -31,7 +27,7 @@ export function DashboardClient() {
           keywords: values.keywords,
           location: values.location,
           dateRange: values.dateRange,
-          sources: values.sources,
+          contentTypes: values.contentTypes,
         }),
       });
       const data = await res.json();
@@ -55,8 +51,8 @@ export function DashboardClient() {
 
   return (
     <AppShell
-      title="Job search dashboard"
-      subtitle="Aggregate listings from LinkedIn, Indeed, Glassdoor, and regional boards. Demo results are simulated sample rows; Search opens a live filtered query on that board. Wire real APIs in lib/aggregators for direct Apply links."
+      title="LinkedIn job search"
+      subtitle="Jobs (RAPIDAPI_KEY / JSearch) and feed posts (SERPAPI_KEY / SerpAPI). Enable both keys on Vercel for fully live results."
     >
       <div className="space-y-8">
         <SearchForm onSearch={runSearch} loading={loading} />
@@ -68,11 +64,27 @@ export function DashboardClient() {
         ) : null}
 
         {meta ? (
-          <p className="text-xs text-slate-500">
-            Last query at {new Date(meta.queriedAt).toLocaleString()} ·{" "}
-            {meta.total} results from {meta.sources.length} board
-            {meta.sources.length === 1 ? "" : "s"}
-          </p>
+          <div className="space-y-2">
+            <p className="text-xs text-slate-500">
+              Last query at {new Date(meta.queriedAt).toLocaleString()} ·{" "}
+              {meta.total} results · mode:{" "}
+              <span className="font-medium text-slate-700">{meta.dataMode}</span>
+              {meta.liveContent
+                ? ` · live jobs: ${meta.liveContent.jobs ? "yes" : "no"} · live posts: ${meta.liveContent.posts ? "yes" : "no"}`
+                : ""}
+            </p>
+            {meta.notice ? (
+              <p
+                className={`rounded-lg border px-3 py-2 text-xs ${
+                  meta.dataMode === "demo"
+                    ? "border-amber-200 bg-amber-50 text-amber-900"
+                    : "border-sky-200 bg-sky-50 text-sky-900"
+                }`}
+              >
+                {meta.notice}
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         {jobs.length > 0 || meta ? (

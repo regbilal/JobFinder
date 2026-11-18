@@ -1,7 +1,7 @@
 "use client";
 
 import type { JobPost } from "@/lib/types";
-import { JOB_SOURCE_LABELS } from "@/lib/types";
+import { LINKEDIN_CONTENT_LABELS } from "@/lib/types";
 
 function formatDate(iso: string) {
   try {
@@ -23,7 +23,7 @@ export function JobTable({ jobs }: { jobs: JobPost[] }) {
   if (jobs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 px-6 py-12 text-center text-sm text-slate-600">
-        No jobs match your filters. Run a search or adjust filters.
+        No results match your filters. Run a search or adjust filters.
       </div>
     );
   }
@@ -34,20 +34,31 @@ export function JobTable({ jobs }: { jobs: JobPost[] }) {
         <table className="min-w-full text-left text-sm">
           <thead className="border-b border-slate-200 bg-slate-50 text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
+              <th className="px-4 py-3">Type</th>
               <th className="px-4 py-3">Title</th>
-              <th className="px-4 py-3">Company</th>
+              <th className="px-4 py-3">Company / author</th>
               <th className="px-4 py-3">Location</th>
               <th className="px-4 py-3">Match</th>
               <th className="px-4 py-3">Posted</th>
-              <th className="px-4 py-3">Source</th>
-              <th className="px-4 py-3 text-right">Apply</th>
+              <th className="px-4 py-3 text-right">Link</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
             {jobs.map((job) => (
               <tr key={job.id} className="hover:bg-slate-50/80">
+                <td className="whitespace-nowrap px-4 py-3">
+                  <span
+                    className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
+                      job.kind === "post"
+                        ? "bg-violet-100 text-violet-800"
+                        : "bg-sky-100 text-sky-900"
+                    }`}
+                  >
+                    {LINKEDIN_CONTENT_LABELS[job.kind]}
+                  </span>
+                </td>
                 <td className="max-w-xs px-4 py-3 font-medium text-slate-900">
-                  <div>{job.title}</div>
+                  <div className="line-clamp-2">{job.title}</div>
                   <p className="mt-0.5 line-clamp-1 text-xs font-normal text-slate-500">
                     {job.descriptionSnippet}
                   </p>
@@ -68,9 +79,6 @@ export function JobTable({ jobs }: { jobs: JobPost[] }) {
                 <td className="whitespace-nowrap px-4 py-3 text-slate-600">
                   {formatDate(job.datePosted)}
                 </td>
-                <td className="whitespace-nowrap px-4 py-3 text-slate-600">
-                  {JOB_SOURCE_LABELS[job.source]}
-                </td>
                 <td className="px-4 py-3 text-right">
                   <a
                     href={job.applyUrl}
@@ -78,12 +86,16 @@ export function JobTable({ jobs }: { jobs: JobPost[] }) {
                     rel="noopener noreferrer"
                     title={
                       job.applyLinkType === "search"
-                        ? "Opens a live search on this job board (demo listings are not real postings)"
+                        ? "Opens LinkedIn search (demo row)"
                         : undefined
                     }
                     className="inline-flex rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 hover:bg-brand-100"
                   >
-                    {job.applyLinkType === "search" ? "Search" : "Apply"}
+                    {job.kind === "post"
+                      ? "View post"
+                      : job.applyLinkType === "search"
+                        ? "Search"
+                        : "Apply"}
                   </a>
                 </td>
               </tr>

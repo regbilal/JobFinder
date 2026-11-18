@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { aggregateJobs } from "@/lib/aggregators";
-import type { DateRangePreset, JobSearchParams, JobSource } from "@/lib/types";
+import type {
+  DateRangePreset,
+  JobSearchParams,
+  LinkedInContentType,
+} from "@/lib/types";
 
 const VALID_RANGES: DateRangePreset[] = [
   "24h",
@@ -10,12 +14,12 @@ const VALID_RANGES: DateRangePreset[] = [
   "any",
 ];
 
-const VALID_SOURCES: JobSource[] = [
-  "linkedin",
-  "indeed",
-  "glassdoor",
-  "regional",
-];
+function parseContentTypes(raw: unknown): LinkedInContentType[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  return raw.filter(
+    (t): t is LinkedInContentType => t === "job" || t === "post"
+  );
+}
 
 function parseKeywords(raw: unknown): string[] {
   if (typeof raw !== "string") return [];
@@ -23,13 +27,6 @@ function parseKeywords(raw: unknown): string[] {
     .split(",")
     .map((s) => s.trim())
     .filter(Boolean);
-}
-
-function parseSources(raw: unknown): JobSource[] | undefined {
-  if (!Array.isArray(raw)) return undefined;
-  return raw.filter((s): s is JobSource =>
-    VALID_SOURCES.includes(s as JobSource)
-  );
 }
 
 export async function POST(request: Request) {
@@ -55,24 +52,29 @@ export async function POST(request: Request) {
     ? (body.dateRange as DateRangePreset)
     : "week";
 
-  const sources = parseSources(body.sources);
+  const contentTypes = parseContentTypes(body.contentTypes);
 
   const params: JobSearchParams = {
     keywords,
     location,
     dateRange,
-    sources,
+    sources: ["linkedin"],
+    contentTypes,
   };
 
-  const { jobs, sources: usedSources } = await aggregateJobs(params);
+  const result = await aggregateJobs(params);
 
   return NextResponse.json({
-    jobs,
+    jobs: result.jobs,
     meta: {
-      total: jobs.length,
+      total: result.jobs.length,
       queriedAt: new Date().toISOString(),
-      sources: usedSources,
+      sources: result.sources,
       params,
+      dataMode: result.dataMode,
+      liveBoards: result.liveBoards,
+      liveContent: result.liveContent,
+      notice: result.notice,
     },
   });
 }

@@ -1,15 +1,21 @@
 import type { JobBoardAggregator } from "@/lib/aggregators/types";
+import { fetchFromJSearch, isJSearchConfigured } from "@/lib/aggregators/jsearch/client";
 import { simulateBoardJobs } from "@/lib/aggregators/simulator";
 
 export const linkedInAggregator: JobBoardAggregator = {
   id: "linkedin",
   displayName: "LinkedIn",
+  mode: "live",
   async fetchJobs(params) {
-    await delay(120 + Math.random() * 180);
-    return simulateBoardJobs("linkedin", params, 8);
+    if (isJSearchConfigured()) {
+      return fetchFromJSearch(params, "linkedin", {
+        publisherPatterns: ["linkedin"],
+      });
+    }
+    return simulateBoardJobs(params, 8);
   },
 };
 
-function delay(ms: number) {
-  return new Promise((resolve) => setTimeout(resolve, ms));
+export function linkedInUsesLiveData(): boolean {
+  return isJSearchConfigured();
 }
