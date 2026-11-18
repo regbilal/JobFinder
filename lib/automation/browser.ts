@@ -2,8 +2,8 @@ import {
   getLinkedInCookies,
 } from "@/lib/automation/linkedin-session";
 import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
-import type { Browser, BrowserContext } from "playwright-core";
-import { chromium } from "playwright-core";
+import type { BrowserContext } from "playwright-core";
+import { launchChromium } from "@/lib/automation/chromium-launch";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
@@ -18,17 +18,9 @@ export async function withLinkedInBrowser<T>(
     );
   }
 
-  let browser: Browser | null = null;
+  let browser: Awaited<ReturnType<typeof launchChromium>> | null = null;
   try {
-    const executablePath =
-      process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim() ||
-      process.env.CHROME_PATH?.trim();
-
-    browser = await chromium.launch({
-      headless: true,
-      executablePath: executablePath || undefined,
-      args: ["--no-sandbox", "--disable-dev-shm-usage"],
-    });
+    browser = await launchChromium();
 
     const context = await browser.newContext({
       userAgent: USER_AGENT,

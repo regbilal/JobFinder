@@ -1,27 +1,18 @@
-import { chromium } from "playwright-core";
 import type { Browser, BrowserContext } from "playwright-core";
+import {
+  formatPlaywrightLaunchError,
+  launchChromium,
+} from "@/lib/automation/chromium-launch";
 
 const USER_AGENT =
   "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
-
-function chromiumExecutable(): string | undefined {
-  return (
-    process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH?.trim() ||
-    process.env.CHROME_PATH?.trim() ||
-    undefined
-  );
-}
 
 export type LinkedInLoginResult =
   | { ok: true; liAt: string; jsessionId?: string }
   | { ok: false; reason: string };
 
 async function launchBrowser(): Promise<Browser> {
-  return chromium.launch({
-    headless: true,
-    executablePath: chromiumExecutable(),
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
-  });
+  return launchChromium();
 }
 
 export async function loginLinkedInWithCredentials(
@@ -90,7 +81,7 @@ export async function loginLinkedInWithCredentials(
   } catch (e) {
     return {
       ok: false,
-      reason: e instanceof Error ? e.message : "LinkedIn login failed.",
+      reason: formatPlaywrightLaunchError(e),
     };
   } finally {
     await browser?.close();

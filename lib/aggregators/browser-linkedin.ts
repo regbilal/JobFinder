@@ -1,3 +1,4 @@
+import { formatPlaywrightLaunchError } from "@/lib/automation/chromium-launch";
 import { fetchJobsWithBrowser } from "@/lib/automation/linkedin-browser-jobs";
 import { fetchPostsWithBrowser } from "@/lib/automation/linkedin-browser-posts";
 import { isLinkedInSessionConfigured } from "@/lib/automation/linkedin-session";
@@ -41,7 +42,7 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
         errors.push("No job cards found in browser session—check keywords/location.");
       }
     } catch (e) {
-      errors.push(e instanceof Error ? e.message : "Browser job scrape failed.");
+      errors.push(formatPlaywrightLaunchError(e));
     }
   }
 
@@ -53,7 +54,7 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
         errors.push("No posts found in content search.");
       }
     } catch (e) {
-      errors.push(e instanceof Error ? e.message : "Browser post scrape failed.");
+      errors.push(formatPlaywrightLaunchError(e));
     }
   }
 
