@@ -72,7 +72,7 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
   return {
     jobs: chunks,
     notice:
-      "Logged-in browser mode uses your connected LinkedIn session (encrypted cookie) with Playwright. Host on Railway/Docker with Chromium.",
+      "Browser mode (fast): up to 2 job keyword passes via in-session API, 1 content search if posts enabled—uncheck Posts for quickest job-only runs.",
     errors,
   };
 }

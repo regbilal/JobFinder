@@ -1,6 +1,7 @@
 import {
   getLinkedInCookies,
 } from "@/lib/automation/linkedin-session";
+import { attachFastNetworking } from "@/lib/automation/browser-fast";
 import { assertLinkedInSession, warmLinkedInHome } from "@/lib/automation/linkedin-page";
 import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
 import type { BrowserContext } from "playwright-core";
@@ -28,6 +29,8 @@ export async function withLinkedInBrowser<T>(
       locale: "fr-FR",
       viewport: { width: 1280, height: 900 },
     });
+
+    await attachFastNetworking(context);
 
     const seeded = await getLinkedInCookies();
     await context.addCookies([

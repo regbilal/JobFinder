@@ -1,9 +1,9 @@
+import { BROWSER_LIMITS, browserPostPlans } from "@/lib/automation/browser-fast";
 import { withLinkedInBrowser } from "@/lib/automation/browser";
 import { gotoLinkedIn } from "@/lib/automation/linkedin-page";
 import { buildLinkedInContentSearchUrl } from "@/lib/job-board-urls";
 import { canonicalLinkedInPostUrl } from "@/lib/linkedin-url";
 import { computeMatchScore } from "@/lib/match-score";
-import { expandKeywordPlans } from "@/lib/search-plans";
 import type { BrowserContext, Page } from "playwright-core";
 import type { JobPost, JobSearchParams } from "@/lib/types";
 
@@ -17,10 +17,9 @@ async function scrapePostsFromPage(page: Page): Promise<
 > {
   await page
     .waitForSelector(".reusable-search__result-container, a[href*='/posts/']", {
-      timeout: 18_000,
+      timeout: BROWSER_LIMITS.selectorTimeoutMs,
     })
     .catch(() => undefined);
-  await page.waitForTimeout(1500);
 
   return page.evaluate(() => {
     const items: {
@@ -74,7 +73,7 @@ async function runPostsInContext(
   context: BrowserContext,
   params: JobSearchParams
 ): Promise<JobPost[]> {
-  const plans = expandKeywordPlans(params.keywords).slice(0, 4);
+  const plans = browserPostPlans(params);
   const merged: JobPost[] = [];
   const seen = new Set<string>();
 
@@ -92,9 +91,12 @@ async function runPostsInContext(
     try {
       await gotoLinkedIn(page, url);
     } catch {
-      const minimal = buildLinkedInContentSearchUrl(kw[0] ?? phrase, undefined, undefined, {
-        forBrowser: true,
-      });
+      const minimal = buildLinkedInContentSearchUrl(
+        kw[0] ?? phrase,
+        undefined,
+        undefined,
+        { forBrowser: true }
+      );
       await gotoLinkedIn(page, minimal);
     }
 
@@ -119,7 +121,9 @@ async function runPostsInContext(
         dataProvider: "browser",
         descriptionSnippet: row.snippet,
       });
+      if (merged.length >= BROWSER_LIMITS.maxPosts) break;
     }
+    if (merged.length >= BROWSER_LIMITS.maxPosts) break;
   }
 
   return merged;

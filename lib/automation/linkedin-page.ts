@@ -1,15 +1,12 @@
+import { BROWSER_LIMITS } from "@/lib/automation/browser-fast";
 import type { Page } from "playwright-core";
 
 export async function warmLinkedInHome(page: Page): Promise<void> {
-  await page.goto("https://www.linkedin.com/", {
-    waitUntil: "domcontentloaded",
-    timeout: 45_000,
-  });
   await page.goto("https://www.linkedin.com/feed/", {
     waitUntil: "domcontentloaded",
-    timeout: 45_000,
+    timeout: BROWSER_LIMITS.navTimeoutMs,
   });
-  await page.waitForTimeout(1500);
+  await page.waitForTimeout(BROWSER_LIMITS.warmupMs);
 
   const dismissers = [
     'button[aria-label*="Dismiss"]',
@@ -20,7 +17,6 @@ export async function warmLinkedInHome(page: Page): Promise<void> {
     const btn = page.locator(sel).first();
     if (await btn.isVisible().catch(() => false)) {
       await btn.click().catch(() => undefined);
-      await page.waitForTimeout(400);
     }
   }
 }
@@ -39,7 +35,7 @@ export async function gotoLinkedIn(
   url: string,
   options?: { timeout?: number }
 ): Promise<void> {
-  const timeout = options?.timeout ?? 60_000;
+  const timeout = options?.timeout ?? BROWSER_LIMITS.navTimeoutMs;
   try {
     await page.goto(url, {
       waitUntil: "domcontentloaded",

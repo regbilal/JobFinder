@@ -81,7 +81,12 @@ export function chromiumLaunchOptions(): LaunchOptions {
   return {
     headless: true,
     executablePath,
-    args: ["--no-sandbox", "--disable-dev-shm-usage"],
+    args: [
+      "--no-sandbox",
+      "--disable-dev-shm-usage",
+      "--disable-gpu",
+      "--disable-extensions",
+    ],
   };
 }
 
