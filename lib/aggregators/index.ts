@@ -10,6 +10,7 @@ import {
 import { isJSearchConfigured } from "@/lib/aggregators/jsearch/client";
 import { isSerpApiConfigured } from "@/lib/aggregators/serp/linkedin-posts";
 import { inferCountryCode } from "@/lib/search-plans";
+import { filterJobsByDateRange } from "@/lib/date-range-filter";
 import type {
   JobPost,
   JobSearchParams,
@@ -115,8 +116,14 @@ export async function aggregateJobs(
     }
   }
 
-  const merged = dedupeJobs(chunks.flat());
-  merged.sort((a, b) => b.matchScore - a.matchScore);
+  let merged = dedupeJobs(chunks.flat());
+  merged = filterJobsByDateRange(merged, params.dateRange);
+  merged.sort((a, b) => {
+    const dt =
+      new Date(b.datePosted).getTime() - new Date(a.datePosted).getTime();
+    if (dt !== 0) return dt;
+    return b.matchScore - a.matchScore;
+  });
 
   const anyLive = (contentTypes.includes("job") && jobsLive) ||
     (contentTypes.includes("post") && postsLive);

@@ -86,6 +86,7 @@ function mapToJobPost(job: JSearchJob, keywords: string[]): JobPost | null {
     applyUrl,
     applyLinkType: "listing",
     source: "linkedin",
+    dataProvider: "jsearch",
     descriptionSnippet: snippet || `${title} at ${job.employer_name ?? "company"}`,
   };
 }

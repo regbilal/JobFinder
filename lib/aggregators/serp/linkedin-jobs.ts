@@ -6,6 +6,7 @@ import {
   inferSerpLocale,
 } from "@/lib/search-plans";
 import { isSerpApiConfigured } from "@/lib/aggregators/serp/linkedin-posts";
+import { parseFlexiblePostedDate } from "@/lib/parse-posted-date";
 
 const DATE_TBS: Partial<Record<DateRangePreset, string>> = {
   "24h": "qdr:d",
@@ -83,6 +84,8 @@ async function runSerpQuery(
     const title =
       row.title?.replace(/\s*\|\s*LinkedIn\s*$/i, "").trim() || "LinkedIn job";
     const snippet = (row.snippet ?? "").trim();
+    const parsed = parseFlexiblePostedDate(row.date);
+    const unknownPostedDate = !parsed;
 
     jobs.push({
       id: `job-${applyUrl.match(/(\d+)/)?.[1] ?? applyUrl}`,
@@ -91,7 +94,9 @@ async function runSerpQuery(
       company: parseCompanyFromSnippet(snippet, title),
       location: params.location.trim() || "—",
       matchScore: computeMatchScore(params.keywords, title, snippet),
-      datePosted: new Date().toISOString(),
+      datePosted: (parsed ?? new Date(0)).toISOString(),
+      unknownPostedDate,
+      dataProvider: "serp",
       applyUrl,
       applyLinkType: "listing",
       source: "linkedin",

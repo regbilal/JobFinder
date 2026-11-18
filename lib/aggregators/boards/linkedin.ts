@@ -15,6 +15,9 @@ function dedupeByUrl(jobs: JobPost[]): JobPost[] {
   return out;
 }
 
+/** Serp uses Google index — often stale. Use only to top up JSearch. */
+const SERP_TOP_UP_MIN = 8;
+
 export const linkedInAggregator: JobBoardAggregator = {
   id: "linkedin",
   displayName: "LinkedIn",
@@ -33,7 +36,10 @@ export const linkedInAggregator: JobBoardAggregator = {
       }
     }
 
-    if (isSerpApiConfigured()) {
+    if (
+      isSerpApiConfigured() &&
+      (jobs.length === 0 || jobs.length < SERP_TOP_UP_MIN)
+    ) {
       const fromSerp = await fetchLinkedInJobsFromSerp(params);
       jobs = dedupeByUrl([...jobs, ...fromSerp]);
     }

@@ -80,9 +80,9 @@ export function simulateBoardJobs(
       matchScore,
       datePosted: posted.toISOString(),
       applyUrl: buildLinkedInJobSearchUrl({
-        title,
-        company,
+        keywords: `${title} ${company}`,
         location: loc,
+        dateRange: params.dateRange,
       }),
       applyLinkType: "search",
       source: "linkedin",

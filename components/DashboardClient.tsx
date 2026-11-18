@@ -2,6 +2,7 @@
 
 import { AppShell } from "@/components/AppShell";
 import { JobResults } from "@/components/JobResults";
+import { LiveLinkedInLinks } from "@/components/LiveLinkedInLinks";
 import { SearchForm, type SearchFormValues } from "@/components/SearchForm";
 import type { JobPost, JobSearchResponse } from "@/lib/types";
 import { useState } from "react";
@@ -13,7 +14,9 @@ export function DashboardClient() {
   const [lastSearch, setLastSearch] = useState<{
     keywords: string;
     location: string;
-  }>({ keywords: "", location: "" });
+    dateRange: import("@/lib/types").DateRangePreset;
+    contentTypes: import("@/lib/types").LinkedInContentType[];
+  }>({ keywords: "", location: "", dateRange: "week", contentTypes: ["job", "post"] });
   const [meta, setMeta] = useState<JobSearchResponse["meta"] | null>(null);
 
   async function runSearch(values: SearchFormValues) {
@@ -41,6 +44,8 @@ export function DashboardClient() {
       setLastSearch({
         keywords: values.keywords,
         location: values.location,
+        dateRange: values.dateRange,
+        contentTypes: values.contentTypes,
       });
     } catch {
       setError("Could not reach the search API.");
@@ -56,6 +61,13 @@ export function DashboardClient() {
     >
       <div className="space-y-8">
         <SearchForm onSearch={runSearch} loading={loading} />
+
+        <LiveLinkedInLinks
+          keywords={lastSearch.keywords || "Responsable production"}
+          location={lastSearch.location}
+          dateRange={lastSearch.dateRange}
+          contentTypes={lastSearch.contentTypes}
+        />
 
         {error ? (
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">

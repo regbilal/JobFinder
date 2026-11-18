@@ -52,6 +52,9 @@ export interface JobPost {
   applyLinkType?: ApplyLinkType;
   source: JobSource;
   descriptionSnippet: string;
+  /** Serp rows without a parseable date (often stale Google index). */
+  unknownPostedDate?: boolean;
+  dataProvider?: "jsearch" | "serp";
 }
 
 export type JobsDataMode = "live" | "demo" | "mixed";

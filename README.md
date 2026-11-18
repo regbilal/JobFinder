@@ -50,7 +50,19 @@ By default, JobFinder shows **simulated** rows (`lib/aggregators/simulator.ts`) 
 | **Job listings** | JSearch → LinkedIn publisher | `RAPIDAPI_KEY` |
 | **Feed posts** | SerpAPI Google index of `linkedin.com/posts` | `SERPAPI_KEY` |
 
-LinkedIn does not offer a public post-search API. Post results use indexed public URLs (coverage and freshness follow Google/SerpAPI, not LinkedIn directly). Demo mode uses placeholders when keys are missing.
+LinkedIn does not offer a public post-search API. Post results use indexed public URLs (coverage and freshness follow Google/SerpAPI, not LinkedIn directly).
+
+### Freshness: APIs vs opening LinkedIn
+
+| Approach | Freshness | Volume | Notes |
+|----------|-----------|--------|--------|
+| **JSearch** (`RAPIDAPI_KEY`) | Best among APIs | High | Uses `date_posted`; preferred for jobs |
+| **SerpAPI** (`SERPAPI_KEY`) | Often **stale** (Google index) | Medium | Used only to top up when JSearch returns few hits |
+| **Open LinkedIn (live)** buttons in the app | **Always current** | Everything on LinkedIn | No API; opens linkedin.com with your filters |
+
+**Alternatives (not built in yet):** [Apify](https://apify.com) LinkedIn Jobs actors (fresher, paid per run), Proxycurl, or browser automation/scraping with your own LinkedIn account — scraping violates LinkedIn ToS and breaks often; use only if you accept that risk.
+
+For production hiring workflows, many teams use **JSearch + dashboard “Open LinkedIn Jobs (live)”** for the latest postings.
 
 ## Project structure
 
