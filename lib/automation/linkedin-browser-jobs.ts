@@ -17,6 +17,11 @@ const F_TPR: Partial<Record<JobSearchParams["dateRange"], string>> = {
   "3months": "r7776000",
 };
 
+const GUEST_HEADERS = {
+  Accept: "text/html,application/xhtml+xml",
+  "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
+};
+
 type ScrapedJob = {
   title: string;
   company: string;
@@ -41,11 +46,6 @@ function guestSearchUrl(
   return url.toString();
 }
 
-const GUEST_HEADERS = {
-  Accept: "text/html,application/xhtml+xml",
-  "Accept-Language": "fr-FR,fr;q=0.9,en;q=0.8",
-};
-
 async function fetchGuestJobsInBrowser(
   page: Page,
   kw: string[],
@@ -57,23 +57,28 @@ async function fetchGuestJobsInBrowser(
       dataProvider: "browser" as const,
     }));
 
-  const firstUrl = guestSearchUrl(kw, params.location, params.dateRange, 0);
-  const first = await page.request.get(firstUrl, { headers: GUEST_HEADERS });
-  if (!first.ok()) return [];
+  const urls = [0, BROWSER_LIMITS.guestPageSize].map((start) =>
+    guestSearchUrl(kw, params.location, params.dateRange, start)
+  );
 
-  const firstHtml = await first.text();
-  const firstJobs = mapBatch(firstHtml);
-  if (firstJobs.length < BROWSER_LIMITS.guestSecondPageMinFirst) {
-    return firstJobs;
+  const responses = await Promise.all(
+    urls.map((url) => page.request.get(url, { headers: GUEST_HEADERS }))
+  );
+
+  const merged: JobPost[] = [];
+  const seen = new Set<string>();
+
+  for (const res of responses) {
+    if (!res.ok()) continue;
+    const batch = mapBatch(await res.text());
+    for (const job of batch) {
+      if (seen.has(job.applyUrl)) continue;
+      seen.add(job.applyUrl);
+      merged.push(job);
+    }
   }
 
-  const second = await page.request.get(
-    guestSearchUrl(kw, params.location, params.dateRange, BROWSER_LIMITS.guestPageSize),
-    { headers: GUEST_HEADERS }
-  );
-  if (!second.ok()) return firstJobs;
-
-  return [...firstJobs, ...mapBatch(await second.text())];
+  return merged;
 }
 
 async function scrapeJobsFromDom(page: Page): Promise<ScrapedJob[]> {
@@ -84,8 +89,9 @@ async function scrapeJobsFromDom(page: Page): Promise<ScrapedJob[]> {
     .catch(() => undefined);
 
   await page.evaluate(() => {
-    window.scrollTo(0, Math.min(1200, document.body.scrollHeight));
+    window.scrollTo(0, Math.min(1600, document.body.scrollHeight));
   });
+  await page.waitForTimeout(600);
 
   return page.evaluate(() => {
     const results: ScrapedJob[] = [];
@@ -138,10 +144,7 @@ async function scrapeJobsFromDom(page: Page): Promise<ScrapedJob[]> {
   });
 }
 
-function domRowsToJobs(
-  dom: ScrapedJob[],
-  params: JobSearchParams
-): JobPost[] {
+function domRowsToJobs(dom: ScrapedJob[], params: JobSearchParams): JobPost[] {
   return dom.map((row) => ({
     id: `browser-${row.applyUrl.match(/(\d+)/)?.[1] ?? row.applyUrl}`,
     kind: "job" as const,
@@ -150,12 +153,37 @@ function domRowsToJobs(
     location: row.location || params.location || "—",
     matchScore: computeMatchScore(params.keywords, row.title, row.snippet),
     datePosted: new Date().toISOString(),
+    unknownPostedDate: true,
     applyUrl: row.applyUrl,
     applyLinkType: "listing" as const,
     source: "linkedin" as const,
     dataProvider: "browser" as const,
     descriptionSnippet: row.snippet,
   }));
+}
+
+async function scrapeJobsForPlan(
+  page: Page,
+  kw: string[],
+  params: JobSearchParams
+): Promise<JobPost[]> {
+  let batch: JobPost[] = [];
+  try {
+    batch = await fetchGuestJobsInBrowser(page, kw, params);
+  } catch {
+    batch = [];
+  }
+
+  if (batch.length > 0) return batch;
+
+  const url = buildLinkedInJobSearchUrl({
+    keywords: kw.join(" "),
+    location: params.location,
+    dateRange: params.dateRange,
+  });
+  await gotoLinkedIn(page, url);
+  const dom = await scrapeJobsFromDom(page);
+  return domRowsToJobs(dom, params);
 }
 
 async function runJobsInContext(
@@ -168,39 +196,14 @@ async function runJobsInContext(
 
   const page = context.pages()[0] ?? (await context.newPage());
 
-  const addBatch = (batch: JobPost[]) => {
+  for (const kw of plans) {
+    const batch = await scrapeJobsForPlan(page, kw, params);
     for (const job of batch) {
       if (seen.has(job.applyUrl)) continue;
       seen.add(job.applyUrl);
       merged.push(job);
     }
-  };
-
-  for (const kw of plans) {
-    let batch: JobPost[] = [];
-    try {
-      batch = await fetchGuestJobsInBrowser(page, kw, params);
-    } catch {
-      batch = [];
-    }
-    addBatch(batch);
     if (merged.length >= BROWSER_LIMITS.maxJobs) break;
-  }
-
-  if (
-    merged.length === 0 &&
-    BROWSER_LIMITS.domFallback &&
-    plans.length > 0
-  ) {
-    const kw = plans[0];
-    const url = buildLinkedInJobSearchUrl({
-      keywords: kw.join(" "),
-      location: params.location,
-      dateRange: params.dateRange,
-    });
-    await gotoLinkedIn(page, url);
-    const dom = await scrapeJobsFromDom(page);
-    addBatch(domRowsToJobs(dom, params));
   }
 
   return merged.slice(0, BROWSER_LIMITS.maxJobs);

@@ -4,7 +4,8 @@ import { fetchJobsWithBrowser } from "@/lib/automation/linkedin-browser-jobs";
 import { fetchPostsWithBrowser } from "@/lib/automation/linkedin-browser-posts";
 import { isLinkedInSessionConfigured } from "@/lib/automation/linkedin-session";
 import { resolveLinkedInLiAt } from "@/lib/linkedin-cookie-store";
-import { filterJobsByDateRange } from "@/lib/date-range-filter";
+import { filterBrowserJobs } from "@/lib/aggregators/browser-jobs-filter";
+import { fetchGuestLinkedInJobs } from "@/lib/scrapers/linkedin-guest-jobs";
 import { inferCountryCode } from "@/lib/search-plans";
 import type { JobPost, JobSearchParams, LinkedInContentType } from "@/lib/types";
 
@@ -40,14 +41,9 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
     await withLinkedInBrowser(async (context) => {
       if (wantJobs) {
         try {
-          let jobs = await fetchJobsWithBrowser(params, context);
-          jobs = filterJobsByDateRange(jobs, params.dateRange);
+          const raw = await fetchJobsWithBrowser(params, context);
+          const jobs = filterBrowserJobs(raw, params.dateRange);
           chunks.push(...jobs);
-          if (jobs.length === 0) {
-            errors.push(
-              "No jobs in this session—try France as location, reconnect LinkedIn (fresh li_at), or use Guest fetch mode."
-            );
-          }
         } catch (e) {
           errors.push(formatPlaywrightLaunchError(e));
         }
@@ -67,6 +63,33 @@ export async function fetchLinkedInBrowser(params: JobSearchParams): Promise<{
     });
   } catch (e) {
     errors.push(formatPlaywrightLaunchError(e));
+  }
+
+  if (wantJobs) {
+    const jobCount = chunks.filter((j) => j.kind === "job").length;
+    if (jobCount === 0) {
+      try {
+        const fallback = filterBrowserJobs(
+          await fetchGuestLinkedInJobs(params),
+          params.dateRange
+        );
+        if (fallback.length > 0) {
+          chunks.push(
+            ...fallback.map((j) => ({ ...j, dataProvider: "browser" as const }))
+          );
+        }
+      } catch (e) {
+        errors.push(
+          e instanceof Error ? e.message : "Guest job fallback failed."
+        );
+      }
+    }
+
+    if (chunks.filter((j) => j.kind === "job").length === 0) {
+      errors.push(
+        "No jobs found—set Location (e.g. France), widen date range, or use Guest fetch mode."
+      );
+    }
   }
 
   return {

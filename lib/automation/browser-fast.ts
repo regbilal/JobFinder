@@ -4,7 +4,7 @@ import { expandKeywordPlans } from "@/lib/search-plans";
 
 /** Cap work per browser search so requests finish in ~30–45s instead of minutes. */
 export const BROWSER_LIMITS = {
-  maxJobPlans: 2,
+  maxJobPlans: 3,
   maxPostPlans: 1,
   maxJobs: 32,
   maxPosts: 18,
@@ -40,6 +40,11 @@ export async function attachFastNetworking(
   context: BrowserContext
 ): Promise<void> {
   await context.route("**/*", (route) => {
+    const url = route.request().url();
+    if (url.includes("jobs-guest") || url.includes("/voyager/api/")) {
+      void route.continue();
+      return;
+    }
     const type = route.request().resourceType();
     if (type === "image" || type === "media" || type === "font") {
       void route.abort();

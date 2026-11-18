@@ -19,16 +19,17 @@ export function maxAgeMs(range: DateRangePreset): number | null {
 
 export function filterJobsByDateRange(
   jobs: JobPost[],
-  range: DateRangePreset
+  range: DateRangePreset,
+  opts?: { keepUnknownPosted?: boolean }
 ): JobPost[] {
   const maxAge = maxAgeMs(range);
   if (maxAge === null) return jobs;
 
   const cutoff = Date.now() - maxAge;
   return jobs.filter((job) => {
+    if (job.unknownPostedDate) return opts?.keepUnknownPosted === true;
     const posted = new Date(job.datePosted).getTime();
-    if (Number.isNaN(posted)) return false;
-    if (job.unknownPostedDate) return false;
+    if (Number.isNaN(posted)) return opts?.keepUnknownPosted === true;
     return posted >= cutoff;
   });
 }

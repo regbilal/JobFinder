@@ -53,8 +53,9 @@ export function parseGuestJobSearchHtml(
     const location =
       $el.find("span.job-search-card__location").text().trim() || "—";
 
+    const datetimeAttr = $el.find("time").attr("datetime")?.trim();
     const listDate =
-      $el.find("time").attr("datetime") ||
+      datetimeAttr ||
       $el.find(".job-search-card__listdate").text().trim() ||
       $el.find("time.job-search-card__listdate").text().trim();
 
@@ -68,6 +69,7 @@ export function parseGuestJobSearchHtml(
       location,
       matchScore: computeMatchScore(keywordContext, title, snippet),
       datePosted: parseListDate(listDate),
+      unknownPostedDate: !datetimeAttr,
       applyUrl,
       applyLinkType: "listing",
       source: "linkedin",

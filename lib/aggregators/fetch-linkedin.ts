@@ -23,7 +23,9 @@ export async function fetchLinkedInDirect(params: JobSearchParams): Promise<{
   if (contentTypes.includes("job")) {
     try {
       let jobs = await fetchGuestLinkedInJobs(params);
-      jobs = filterJobsByDateRange(jobs, params.dateRange);
+      jobs = filterJobsByDateRange(jobs, params.dateRange, {
+        keepUnknownPosted: true,
+      });
       chunks.push(...jobs);
       if (jobs.length === 0) {
         errors.push(
