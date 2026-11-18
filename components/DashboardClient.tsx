@@ -56,7 +56,7 @@ export function DashboardClient() {
   return (
     <AppShell
       title="Job search dashboard"
-      subtitle="Aggregate listings from LinkedIn, Indeed, Glassdoor, and regional boards. Results are simulated for demo; replace aggregators with real API or scraper integrations in lib/aggregators."
+      subtitle="Aggregate listings from LinkedIn, Indeed, Glassdoor, and regional boards. Demo results are simulated sample rows; Search opens a live filtered query on that board. Wire real APIs in lib/aggregators for direct Apply links."
     >
       <div className="space-y-8">
         <SearchForm onSearch={runSearch} loading={loading} />

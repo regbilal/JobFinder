@@ -33,6 +33,9 @@ export interface JobSearchParams {
   sources?: JobSource[];
 }
 
+/** Listing = direct posting URL; search = opens a filtered search on that board (demo/simulated). */
+export type ApplyLinkType = "listing" | "search";
+
 export interface JobPost {
   id: string;
   title: string;
@@ -41,6 +44,7 @@ export interface JobPost {
   matchScore: number;
   datePosted: string;
   applyUrl: string;
+  applyLinkType?: ApplyLinkType;
   source: JobSource;
   descriptionSnippet: string;
 }

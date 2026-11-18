@@ -76,9 +76,14 @@ export function JobTable({ jobs }: { jobs: JobPost[] }) {
                     href={job.applyUrl}
                     target="_blank"
                     rel="noopener noreferrer"
+                    title={
+                      job.applyLinkType === "search"
+                        ? "Opens a live search on this job board (demo listings are not real postings)"
+                        : undefined
+                    }
                     className="inline-flex rounded-lg border border-brand-200 bg-brand-50 px-3 py-1 text-xs font-semibold text-brand-800 hover:bg-brand-100"
                   >
-                    Apply
+                    {job.applyLinkType === "search" ? "Search" : "Apply"}
                   </a>
                 </td>
               </tr>

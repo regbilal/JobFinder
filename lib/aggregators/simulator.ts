@@ -1,4 +1,5 @@
 import type { DateRangePreset, JobPost, JobSource } from "@/lib/types";
+import { buildBoardSearchUrl } from "@/lib/job-board-urls";
 import { computeMatchScore } from "@/lib/match-score";
 
 const COMPANIES = [
@@ -56,20 +57,6 @@ function daysAgoForRange(range: DateRangePreset, rand: () => number): number {
   }
 }
 
-function applyUrlForSource(source: JobSource, id: string): string {
-  const q = encodeURIComponent(id);
-  switch (source) {
-    case "linkedin":
-      return `https://www.linkedin.com/jobs/view/${q}`;
-    case "indeed":
-      return `https://www.indeed.com/viewjob?jk=${q}`;
-    case "glassdoor":
-      return `https://www.glassdoor.com/job-listing/${q}`;
-    case "regional":
-      return `https://jobs.example.local/listing/${q}`;
-  }
-}
-
 export function simulateBoardJobs(
   source: JobSource,
   params: import("@/lib/types").JobSearchParams,
@@ -109,7 +96,12 @@ export function simulateBoardJobs(
       location: loc,
       matchScore,
       datePosted: posted.toISOString(),
-      applyUrl: applyUrlForSource(source, id),
+      applyUrl: buildBoardSearchUrl(source, {
+        title,
+        company,
+        location: loc,
+      }),
+      applyLinkType: "search",
       source,
       descriptionSnippet: snippet,
     });
