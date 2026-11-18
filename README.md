@@ -84,7 +84,32 @@ LinkedIn may block some datacenter IPs (e.g. serverless hosts). If fetch returns
 4. Install Chromium: `npx playwright install chromium`
 5. On the dashboard choose **Logged-in browser**.
 
-This mode can return **jobs and feed posts** while authenticated. It needs a full Node server with Chromium (local `npm run dev`, Railway, Docker, VPS)—**Vercel serverless usually cannot run Playwright**. If deploy fails, run the app on Railway and set env vars there.
+This mode can return **jobs and feed posts** while authenticated. It needs a full Node server with Chromium (local `npm run dev`, Railway, Docker, VPS)—**Vercel serverless usually cannot run Playwright**.
+
+## Deploy on Railway (browser mode — recommended)
+
+The repo includes a **`Dockerfile`** (Playwright base image) and **`railway.toml`**.
+
+1. [railway.app](https://railway.app) → **New Project** → **Deploy from GitHub** → `regbilal/JobFinder`.
+2. Railway detects the Dockerfile automatically (`railway.toml` sets `builder = "DOCKERFILE"`).
+3. **Variables** (required):
+   - `APP_PASSWORD` — dashboard login
+   - `LINKEDIN_LI_AT` — your session cookie (refresh when it expires)
+   - Optional: `AUTH_SECRET`, `RAPIDAPI_KEY`, `SERPAPI_KEY`
+4. Deploy → open the generated URL → sign in with `APP_PASSWORD` → use **Logged-in browser**.
+
+**Local Docker test:**
+
+```bash
+cp .env.example .env.local   # fill APP_PASSWORD + LINKEDIN_LI_AT
+docker compose up --build
+```
+
+Open http://localhost:3000
+
+## Deploy on Vercel (guest fetch / APIs only)
+
+Vercel is fine for **Guest fetch**, **Links**, and **Third-party API** modes. **Logged-in browser** will not work on Vercel.
 
 ## Project structure
 
