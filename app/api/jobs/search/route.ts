@@ -1,9 +1,16 @@
 import { NextResponse } from "next/server";
 import { aggregateJobs } from "@/lib/aggregators";
 import {
+  browserMeta,
+  fetchLinkedInBrowser,
+} from "@/lib/aggregators/browser-linkedin";
+import {
   fetchLinkedInDirect,
   guestFetchMeta,
 } from "@/lib/aggregators/fetch-linkedin";
+
+export const maxDuration = 120;
+export const dynamic = "force-dynamic";
 import type {
   DateRangePreset,
   JobSearchParams,
@@ -60,7 +67,9 @@ export async function POST(request: Request) {
   const contentTypes = parseContentTypes(body.contentTypes);
 
   const searchMode: SearchMode =
-    body.searchMode === "api" || body.searchMode === "links"
+    body.searchMode === "api" ||
+    body.searchMode === "links" ||
+    body.searchMode === "browser"
       ? body.searchMode
       : "fetch";
 
@@ -71,6 +80,29 @@ export async function POST(request: Request) {
     sources: ["linkedin"],
     contentTypes,
   };
+
+  if (searchMode === "browser") {
+    const browser = await fetchLinkedInBrowser(params);
+    const extra = browserMeta(params);
+    return NextResponse.json({
+      jobs: browser.jobs,
+      meta: {
+        total: browser.jobs.length,
+        queriedAt: new Date().toISOString(),
+        sources: ["linkedin"],
+        params,
+        dataMode: "live" as const,
+        liveBoards: ["linkedin"],
+        liveContent: { jobs: true, posts: true },
+        notice: browser.notice,
+        errors: browser.errors.length ? browser.errors : undefined,
+        searchMode: "browser",
+        linkedInSession: extra.linkedInSession,
+        keysConfigured: extra.keysConfigured,
+        searchCountry: extra.searchCountry,
+      },
+    });
+  }
 
   if (searchMode === "fetch") {
     const direct = await fetchLinkedInDirect(params);

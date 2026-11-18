@@ -70,9 +70,14 @@ export function SearchForm({
         <p className="text-sm font-medium text-slate-700">Search mode</p>
         <div className="mt-2 flex flex-wrap gap-2">
           <ModeButton
+            active={searchMode === "browser"}
+            onClick={() => setSearchMode("browser")}
+            label="Logged-in browser"
+          />
+          <ModeButton
             active={searchMode === "fetch"}
             onClick={() => setSearchMode("fetch")}
-            label="Fetch from LinkedIn (recommended)"
+            label="Guest fetch (no login)"
           />
           <ModeButton
             active={searchMode === "links"}
@@ -86,6 +91,19 @@ export function SearchForm({
           />
         </div>
       </div>
+
+      {searchMode === "browser" ? (
+        <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+          <p className="font-semibold">Session cookie required</p>
+          <p className="mt-1">
+            Set <code className="rounded bg-white/80 px-1">LINKEDIN_LI_AT</code> in
+            Vercel or <code className="rounded bg-white/80 px-1">.env.local</code>: sign in
+            at linkedin.com → DevTools → Application → Cookies → copy{" "}
+            <code className="rounded bg-white/80 px-1">li_at</code>. Needs Chromium on
+            the server (<code className="rounded bg-white/80 px-1">npx playwright install chromium</code>).
+          </p>
+        </div>
+      ) : null}
 
       <div className="mb-5">
         <p className="text-sm font-medium text-slate-700">Search on</p>
@@ -165,7 +183,9 @@ export function SearchForm({
         >
           {loading
             ? "Working…"
-            : searchMode === "fetch"
+            : searchMode === "browser"
+              ? "Run browser search…"
+              : searchMode === "fetch"
               ? "Fetch LinkedIn results"
               : searchMode === "links"
                 ? "Build search links"

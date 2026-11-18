@@ -76,6 +76,16 @@ For production hiring workflows, many teams use **JSearch + dashboard “Open Li
 
 LinkedIn may block some datacenter IPs (e.g. serverless hosts). If fetch returns 0 rows on Vercel, use **Search links** or **Third-party API**. Scraping may violate LinkedIn’s ToS—use for personal/internal tooling.
 
+### Logged-in browser mode (Playwright)
+
+1. Sign in at [linkedin.com](https://www.linkedin.com) in Chrome/Edge.
+2. DevTools → **Application** → **Cookies** → `linkedin.com` → copy **`li_at`**.
+3. Set `LINKEDIN_LI_AT` in `.env.local` / your host env (never commit).
+4. Install Chromium: `npx playwright install chromium`
+5. On the dashboard choose **Logged-in browser**.
+
+This mode can return **jobs and feed posts** while authenticated. It needs a full Node server with Chromium (local `npm run dev`, Railway, Docker, VPS)—**Vercel serverless usually cannot run Playwright**. If deploy fails, run the app on Railway and set env vars there.
+
 ## Project structure
 
 ```

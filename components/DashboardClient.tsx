@@ -104,11 +104,13 @@ export function DashboardClient() {
             <p className="text-xs text-slate-500">
               Last query at {new Date(meta.queriedAt).toLocaleString()} ·{" "}
               {meta.total} results ·{" "}
-              {meta.searchMode === "fetch"
-                ? "fetch from LinkedIn"
-                : meta.searchMode === "links"
-                  ? "search links"
-                  : `API (${meta.dataMode})`}
+              {meta.searchMode === "browser"
+                ? `logged-in browser${meta.linkedInSession ? "" : " (no cookie)"}`
+                : meta.searchMode === "fetch"
+                  ? "guest fetch"
+                  : meta.searchMode === "links"
+                    ? "search links"
+                    : `API (${meta.dataMode})`}
               {meta.searchMode === "api"
                 ? ` · RAPIDAPI ${meta.keysConfigured?.rapidApi ? "on" : "off"} · SERPAPI ${meta.keysConfigured?.serpApi ? "on" : "off"}`
                 : ""}
